@@ -1,4 +1,4 @@
-"""Upload reviewed local binaries as a draft GitHub release, then publish it."""
+"""Upload local builds to a draft release; publishing requires --publish."""
 
 import argparse
 import json
@@ -14,6 +14,7 @@ REPO="Amy22707/Travel-Frog"
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag",default="v0.2.0")
+    parser.add_argument("--publish",action="store_true",help="Publish after upload; otherwise keep the release as a draft.")
     args=parser.parse_args()
     credential=subprocess.run(["git","credential","fill"],input="protocol=https\nhost=github.com\n\n",
                               text=True,capture_output=True,check=True)
@@ -26,7 +27,8 @@ def main():
         with urllib.request.urlopen(urllib.request.Request(url,data=data,headers=headers,method=method),timeout=600) as response:
             return json.load(response)
     files=[ROOT/"release/TravelFrogNormal-Windows.zip",ROOT/"release/TravelFrogGallery-Windows.zip",
-           ROOT/"release/Android/FrogNormal.apk",ROOT/"release/Android/FrogGallery.apk"]
+           ROOT/"release/Android/FrogNormal.apk",ROOT/"release/Android/FrogGallery.apk",
+           ROOT/"release/TravelFrogWeb.zip"]
     for file in files:
         if not file.is_file():raise FileNotFoundError(file)
     api=f"https://api.github.com/repos/{REPO}"
@@ -46,7 +48,8 @@ def main():
             request(upload+"?name="+urllib.parse.quote(file.name),"POST",stream,
                     {"Content-Type":"application/octet-stream","Content-Length":str(file.stat().st_size)})
         print(f"Uploaded {file.name}",flush=True)
-    result=request(api+"/releases/"+str(release["id"]),"PATCH",{"draft":False})
+    result=request(api+"/releases/"+str(release["id"]),"PATCH",{"draft":not args.publish})
+    print("Published" if args.publish else "Draft retained",flush=True)
     print(result["html_url"],flush=True)
 
 
