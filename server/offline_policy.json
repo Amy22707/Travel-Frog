@@ -1,0 +1,426 @@
+{
+  "guest": {
+    "party_invite_percent": 15,
+    "normal_weights": {
+      "clover": 80,
+      "four_clover": 18,
+      "ticket": 2
+    },
+    "rare_weights": {
+      "clover": 20,
+      "four_clover": 50,
+      "ticket": 30
+    },
+    "clover_min": 20,
+    "clover_max": 60,
+    "ticket_min": 1,
+    "ticket_max": 3
+  },
+  "visitor_schedule": {
+    "enabled": true,
+    "cooldown_seconds": 21600,
+    "check_interval_seconds": 1800,
+    "appearance_percent_per_check": 10,
+    "position_count": 3,
+    "max_checks": 48,
+    "stay_min_seconds": 7200,
+    "stay_max_seconds": 21600,
+    "served_departure_min_seconds": 7200,
+    "served_departure_max_seconds": 14400
+  },
+  "party": {
+    "auto_return": true,
+    "duration_seconds": 1800,
+    "clover_min": 50,
+    "clover_max": 120,
+    "ticket_percent": 50,
+    "ticket_min": 1,
+    "ticket_max": 4,
+    "page_percent": 20,
+    "collection_percent": 10,
+    "furniture_percent": 20
+  },
+  "travel": {
+    "auto_return": true,
+    "force_duration_seconds": 0,
+    "allow_unconfirmed_auto_departure": false,
+    "unconfirmed_departure_seconds": 21600,
+    "duration_seconds_by_food": {
+      "0": 1800,
+      "1": 3600,
+      "2": 7200,
+      "3": 5400,
+      "default": 7200
+    },
+    "base_picture_percent": 70,
+    "normal_picture_percent": 70,
+    "max_pictures": 4,
+    "photo_share_clover": 20,
+    "frog_back_bonus_picture_count": 2,
+    "frog_back_bonus_picture_percent": 100,
+    "tool_picture_bonus": {
+      "0": 0,
+      "1": 15,
+      "2": 30,
+      "3": 50
+    },
+    "tool_picture_percent": 40,
+    "tool_picture_environment_by_place": {
+      "1": ["town"], "2": ["wet"], "3": ["fuza"],
+      "4": ["wet"], "5": ["wet"], "6": ["wet"], "7": ["wet"],
+      "8": ["dry", "wet"], "9": ["dry"], "10": ["dry"],
+      "11": ["town"], "12": ["fuza", "town"],
+      "13": ["wet", "fuza", "town"], "14": ["wet", "town"],
+      "15": ["dry", "wet"], "16": ["dry", "wet"], "17": ["dry"],
+      "18": ["dry", "wet", "fuza"], "19": ["dry", "wet", "fuza"],
+      "20": ["wet"], "21": ["dry", "wet"], "22": ["wet", "fuza"],
+      "23": ["dry", "wet", "town"], "24": ["dry", "wet"],
+      "25": ["wet", "fuza"], "27": ["fuza", "town"],
+      "28": ["dry", "wet", "town"]
+    },
+    "specialty_percent": 60,
+    "max_travel_items": 10,
+    "collection_percent": 25,
+    "clover_min": 30,
+    "clover_max": 90,
+    "ticket_percent": 35,
+    "ticket_max": 2,
+    "museum_picture_percent": 80,
+    "museum_collection_percent": 45,
+    "direction_bias_weight": 5,
+    "amulet_place_bias_map": {
+      "1100": [24, 25]
+    },
+    "amulet_place_bias_weight": {
+      "1100": 20
+    },
+    "unique_picture_percent": 15,
+    "unique_picture_pool": [
+      3014, 3017, 3018, 3019, 3021, 3031, 3035, 3038, 3039, 3040,
+      3041, 3042, 3043, 3044, 3085, 3088, 3101, 3104, 3105, 3106
+    ],
+    "food_affinity_weight": 5,
+    "unseen_bias_weight": 4,
+    "target_food_place_map_note": "Local representative mapping, not the official route algorithm. Food 109 (凤梨酥) selects GoalNumber 9 (垦丁) or 10 (十分) with equal 50/50 candidate probability.",
+    "target_food_place_map": {
+      "101": 1,
+      "102": 2,
+      "103": 3,
+      "104": 4,
+      "105": 5,
+      "106": 6,
+      "107": 7,
+      "108": 8,
+      "109": [9, 10],
+      "110": 12,
+      "111": 18,
+      "112": 21,
+      "113": 14,
+      "114": 13,
+      "115": 16,
+      "116": 15,
+      "117": 17,
+      "118": 19,
+      "119": 20,
+      "120": 11,
+      "121": 23,
+      "122": 22,
+      "123": 24,
+      "124": 25,
+      "125": 26,
+      "126": 27,
+      "127": 28,
+      "128": 29,
+      "129": 30,
+      "130": 31,
+      "131": 32,
+      "132": 33,
+      "133": 35,
+      "134": 34
+    },
+    "food_picture_map_note": "节气食物按当前正式图组返回各自两张或三张节气照；蜂蜜厚多士（32）必得蓝蚂蚁照 3062；庆典蛋糕（57）必得三张周年照片之一：3102 anniv、3103 player、3207 anniv_2；伴柠伴桔（18）搭配彩叶幸运草（1200）时，有 50% 概率获得蓝蚂蚁照 3062。",
+    "food_picture_map": {
+      "18": [3062], "20": [3068, 3168], "21": [3049, 3149, 3209],
+      "22": [3050, 3150, 3210], "23": [3071, 3171], "24": [3072, 3172],
+      "25": [3073, 3173, 3109, 3110], "26": [3074, 3174], "27": [3055, 3155],
+      "28": [3076, 3176, 3180], "29": [3077, 3177, 3181],
+      "30": [3058, 3158, 3182], "31": [3059, 3159, 3206], "32": [3062],
+      "34": [3060], "35": [3048, 3148, 3208], "36": [3069, 3169],
+      "37": [3070, 3170], "38": [3051, 3151, 3211], "39": [3052, 3152, 3212],
+      "40": [3053, 3153, 3213], "41": [3054, 3154], "42": [3075, 3175],
+      "43": [3056, 3156], "44": [3057, 3157], "45": [3078, 3178],
+      "46": [3079, 3179], "47": [3030, 3080, 3111], "48": [3030, 3080, 3111],
+      "49": [3030, 3080, 3111], "50": [3030, 3080, 3111], "51": [3030, 3080, 3111],
+      "52": [3030, 3080, 3111], "53": [3030, 3080, 3111], "54": [3061, 3081],
+      "55": [3086], "56": [3092, 3093, 3094, 3095, 3098, 3099, 3100],
+      "57": [3102, 3103, 3207]
+    },
+    "food_picture_percent": {
+      "18": 25, "20": 70, "21": 70, "22": 70, "23": 70, "24": 70,
+      "25": 70, "26": 70, "27": 70, "28": 70, "29": 70, "30": 70,
+      "31": 70, "34": 70, "35": 70, "36": 70, "37": 70, "38": 70,
+      "39": 70, "40": 70, "41": 70, "42": 70, "43": 70, "44": 70,
+      "45": 70, "46": 70, "47": 70, "48": 70, "49": 70, "50": 70,
+      "51": 70, "52": 70, "53": 70, "54": 70, "55": 70, "56": 70
+    },
+    "food_picture_prefer_unowned_amulet": {
+      "1200": [18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+               35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 54, 56]
+    },
+    "food_amulet_picture_map": {
+      "18": {
+        "1200": [
+          3062
+        ]
+      }
+    },
+    "food_amulet_picture_percent": {
+      "18": {
+        "1200": 50
+      }
+    },
+    "road_sign_route_map": {
+      "1101": [105, 106], "1102": [105, 106], "1103": [105, 106]
+    },
+    "road_sign_route_percent": {"1101": 20, "1102": 35, "1103": 50},
+    "special_route_picture_map": {
+      "105": [124, 125, 2107, 2108, 3046, 3047],
+      "106": [130, 131, 2138, 2139, 3090, 3091]
+    },
+    "amulet_picture_map": {
+      "1105": [126, 3022, 3023, 3045],
+      "1106": [3092, 3093, 3094, 3095, 3098, 3099, 3100]
+    },
+    "amulet_picture_percent": {"1105": 35, "1106": 100},
+    "lucky_flower_picture_pool": [201, 202, 203, 204, 205, 206, 207,
+                                   3033, 3034, 3096, 3097, 3107, 3108,
+                                   3201, 3202, 3203, 3204, 3205],
+    "lucky_flower_picture_percent": 35
+  },
+  "home_motion": {
+    "refresh_min_seconds": 3600,
+    "refresh_max_seconds": 10800,
+    "sleep_start_min_hour": 20,
+    "sleep_start_max_hour": 23,
+    "sleep_min_seconds": 25200,
+    "sleep_max_seconds": 32400,
+    "summer_watermelon_months": [6, 7, 8],
+    "summer_watermelon_start_min_hour": 11,
+    "summer_watermelon_start_max_hour": 17,
+    "summer_watermelon_duration_seconds": 5400
+  },
+  "handcraft": {
+    "enabled": true,
+    "job_seconds": 1800,
+    "material_travel_percent": 35,
+    "fragment_travel_percent": 35,
+    "travel_effects": {
+      "1300": {"clover_bonus": 30},
+      "1301": {"duration_multiplier": 0.7},
+      "1302": {"collection_percent_bonus": 35},
+      "1303": {"ticket_percent_bonus": 35},
+      "1304": {"specialty_percent_bonus": 35},
+      "1305": {"base_picture_percent_bonus": 25},
+      "1306": {"unique_picture_percent_bonus": 25},
+      "1307": {"tool_picture_percent_bonus": 35},
+      "1308": {"normal_picture_percent_bonus": 35},
+      "1309": {"story_encounter_bonus_percent": 25}
+    }
+  },
+  "furniture": {
+    "enabled": true,
+    "start_delay_min_seconds": 7200,
+    "start_delay_max_seconds": 172800,
+    "job_min_seconds": 3600,
+    "job_max_seconds": 43200,
+    "ordinary_material_count": 3,
+    "manual_replace_mess_after": 12,
+    "manual_replace_mess_percent": 35,
+    "mess_recovery_trips": 3,
+    "home_auto_replace_percent": 35
+  },
+  "clover": {
+    "net_enabled": true,
+    "net_max_credit_per_login": 100,
+    "four_leaf_percent": 0.5,
+    "wild_plant_percent": 0.0,
+    "wild_decoration_ids": [
+      1001,
+      1002,
+      1003,
+      1004,
+      1005
+    ]
+  },
+  "garden": {
+    "enabled": true,
+    "stage_points": [
+      0,
+      100,
+      200,
+      300
+    ],
+    "passive_growth_points_per_hour": 10,
+    "guest_growth_points": 60,
+    "auto_plant_on_guest_departure": true,
+    "max_auto_plants_per_guest": 1,
+    "fertility_multiplier_by_state": {
+      "0": 1.0,
+      "1": 1.1,
+      "2": 1.25,
+      "3": 1.5,
+      "4": 1.8
+    },
+    "fertilizer_points": {
+      "20001": 35,
+      "20002": 70,
+      "20003": 120,
+      "20004": 30,
+      "20005": 60,
+      "20006": 100
+    },
+    "specialty_compost_points": 18,
+    "fertilizer_duration_seconds": {
+      "20001": 86400,
+      "20002": 86400,
+      "20003": 86400,
+      "20004": 259200,
+      "20005": 259200,
+      "20006": 259200
+    },
+    "specialty_compost_duration_seconds": 86400,
+    "compost_lock_delay_seconds": 300,
+    "compost_absorb_seconds": 7200,
+    "pocket_capacity": 50,
+    "dudu_arrive_hour": 12,
+    "dudu_leave_hour": 24,
+    "dudu_min_stay_minutes": 360,
+    "dudu_max_stay_minutes": 480,
+    "dudu_total_slots": 10,
+    "dudu_seed_slots": 3,
+    "dudu_fertilizer_slots": 2,
+    "dudu_general_slots": 3,
+    "dudu_special_gift_slots": 1
+  },
+  "museum_day": {
+    "enabled": true,
+    "refreshes_per_exploration": 3,
+    "restart_clover": [100, 200, 200]
+  },
+  "greet_card": {
+    "enabled": true,
+    "tag_price": 20,
+    "background_prices": [0, 100, 150, 200]
+  },
+  "spring_card": {
+    "enabled": true,
+    "bag_price": 20,
+    "bag_limit": 6,
+    "share_limit": 3
+  },
+  "party_cake": {
+    "enabled": true,
+    "starter_cream": 68,
+    "starter_sugar": 41
+  },
+  "special_titles": {
+    "party_cake_light": 900,
+    "museum_day_collection": 901,
+    "furniture_creation": 902
+  },
+  "capsule": {
+    "enabled": true,
+    "fast_consume": 30,
+    "starter_coins": 2,
+    "remaining_task_count": 14
+  },
+  "calendar": {
+    "offline_complete_ad_share_task": true
+  },
+  "giftbox_friend": {
+    "enabled": true,
+    "picture_capacity": 30,
+    "specialty_capacity": 30,
+    "delay_seconds": 60,
+    "trigger_percent_per_login": 100,
+    "consume_specialty_on_visit": true,
+    "consume_picture_on_visit": true,
+    "normal_weights": {
+      "clover": 80,
+      "four_clover": 18,
+      "ticket": 2
+    },
+    "clover_amount": 20,
+    "ticket_min": 1,
+    "ticket_max": 3,
+    "postcard_percent": 100,
+    "postcard_source": "official_traveler_tags"
+  },
+  "story_social": {
+    "enabled": true,
+    "encounter_percent": 25,
+    "amulet_encounter_bonus_percent": {
+      "1012": 10,
+      "1100": 20
+    },
+    "anonymize_existing_names": true,
+    "generic_name": "旅途中的朋友",
+    "return_gift_required": false
+  },
+  "vase": {
+    "fresh_seconds": 172800,
+    "withered_seconds": 86400,
+    "frog_return_arrange_percent": 35
+  },
+  "lottery": {
+    "open_clover": 10,
+    "open_clover_by_phase": {
+      "171": 10,
+      "172": 8
+    },
+    "extra_item_by_phase": {
+      "171": {
+        "item_id": 101,
+        "count": 1
+      },
+      "172": {
+        "item_id": 105,
+        "count": 1
+      }
+    },
+    "candidate_count": 15,
+    "selection_count": 5,
+    "allow_local_future_phase_pool": true
+  },
+  "picture_generation": {
+    "prefer_official_templates": true,
+    "allow_estimated_character_size": true
+  },
+  "animpicture": {
+    "developer_exp": {
+      "8002": 20,
+      "8003": 50,
+      "8004": 100
+    },
+    "extra_photo_bonus_per_photo": 0
+  },
+  "wishing_pool": {
+    "enabled": true,
+    "starter_coins": 4,
+    "items": [
+      {"id": 201005, "num": 1, "limit": 1},
+      {"id": 201006, "num": 1, "limit": 1},
+      {"id": 201007, "num": 1, "limit": 1},
+      {"id": 204002, "num": 1, "limit": 1}
+    ]
+  },
+  "tutorial": {
+    "completion_rewards": {
+      "clover": 100,
+      "ticket": 5,
+      "items": [
+        {"item_id": 1000, "count": 1}
+      ]
+    }
+  }
+}
