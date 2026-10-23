@@ -104,17 +104,28 @@ def repair_gallery_handcraft(state: dict) -> None:
             row["time"] = now
 
 
-def main() -> None:
-    source = ROOT / "server" / "data" / "state.json"
-    destination = ROOT / "server" / "data" / "gallery_state.json"
-    if destination.exists():
-        raise SystemExit(f"Gallery save already exists: {destination}")
-    state = copy.deepcopy(json.loads(source.read_text(encoding="utf-8")))
+def make_gallery_state(source_state: dict) -> dict:
+    state = copy.deepcopy(source_state)
     state.setdefault("offline_meta", {})["gallery_edition"] = True
 
     role = payload(state, "client.load_role")
     role["res"]["clover_point"] = 9999
     role["frog"]["achieves"] = sorted({int(row["id"]) for row in config("Achieve_json.json")})
+    settings = role.setdefault("settings", {})
+    client_settings = settings.get("client", "{}")
+    if isinstance(client_settings, str):
+        client_settings = json.loads(client_settings or "{}")
+    client_settings.update({
+        "guideStep": "Complete", "hasAchieve": True, "hasOpenAttributeView": True,
+        "hasEnteredRaffle": True, "hasOpenedDesk": True, "hasBuyTool": True,
+        "hasFriendVisit": True, "guideVisitor": True, "guideVisitorGift": True,
+        "guideStory": True, "guideStoryGift": True, "hasOpenedNote": True,
+        "guideNote": True, "guideHandCraft": True, "guideSlidePicture": True,
+        "guideFurniture": 5, "guideFurnitureNotice": True, "guideAnnualReview": True,
+        "guideDrawing": 5, "noticeDrawing": -1, "guideCamera": True,
+    })
+    settings["client"] = json.dumps(client_settings, ensure_ascii=False)
+    state["offline_meta"]["tutorial"] = {"door_opened": True, "completion_reward_claimed": True}
 
     house = payload(state, "item.load_items")["house"]
     for row in config("Item_json.json"):
@@ -189,7 +200,21 @@ def main() -> None:
     role["misc"]["picture_cnt"] = len(album)
     complete_gallery_handbook(state)
     game.normalize_gallery_resources(state)
+    game.complete_gallery_guide_tasks(state)
+    game.complete_gallery_moments(state)
+    return state
+
+
+def main() -> None:
+    source = ROOT / "server" / "data" / "state.json"
+    destination = ROOT / "server" / "data" / "gallery_state.json"
+    if destination.exists():
+        raise SystemExit(f"Gallery save already exists: {destination}")
+    state = make_gallery_state(json.loads(source.read_text(encoding="utf-8")))
     game.atomic_write_json(destination, state)
+    album = payload(state, "album.load_all")["id_list"]
+    fixed_ids = [row for row in config("Picture_json.json") if row.get("type") != "Normal"]
+    dynamic_ids = config("animpictureData_json.json")["pic_map"]
     print(f"gallery save: {destination}")
     print(f"fixed photos: {len(fixed_ids)}; dynamic sources: {len(dynamic_ids)} x 6; album entries: {len(album)}")
     print(f"album pages needed: {(len(album) + 5) // 6}; available expansion items: 999")

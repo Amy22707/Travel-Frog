@@ -13,7 +13,7 @@
 
 普通版保留实际库存、制作和旅行进度。图鉴版使用独立存档，解锁收藏内容，并按图鉴版规则保持资源数量；部分季节活动常驻。
 
-Windows 启动器、服务端 EXE、两个本地资源 APK 与存档导入导出正在开发。当前仓库是服务端和工具源码，不是下载后即可独立运行的完整游戏包。
+Windows 启动器可以通过“电脑上玩”打开本机独立游戏窗口，无需安卓模拟器；使用电脑上的 Edge 或 Chrome 显示原游戏界面。安卓 APK 内置资源，通过 ADB reverse 连接 Windows 服务。两版均支持创建初始存档、导入和导出。源码仓库不包含完整游戏资源或构建后的安装包。
 
 ## 源码目录
 
@@ -24,6 +24,8 @@ Travel-Frog/
 │  ├─ offline_policy.json         离线概率、时长和路线策略
 │  └─ config/lunar_festivals.json 农历节日日期
 ├─ client/js/calendar.offline.js  离线日历扩展
+├─ desktop/                      Windows 启动器与存档管理
+├─ packaging/                    EXE、双版本 APK 和本地 Web 资源构建
 ├─ tools/
 │  ├─ capture/                   抓包解析与脱敏代码
 │  ├─ resources/                 资源容器解析和本机资源整理工具
@@ -65,6 +67,20 @@ adb reverse tcp:8081 tcp:52353
 ```bat
 python -m unittest tools.test_logic_audit tools.test_seasonal_activities
 ```
+
+## Windows 与 APK 构建
+
+准备好本机资源后，先构建 APK 及资源目录，再构建 Windows 程序：
+
+```bat
+python -m pip install --target .build-deps -r requirements-build.txt
+python packaging\build_apks.py
+python packaging\build_windows.py
+```
+
+本机构建输出为 `release/TravelFrog/`。运行 `FrogLauncher.exe`，选择版本后创建或导入存档，再点击“电脑上玩”。安卓用户可以在启动器中选择 ADB 与设备，安装对应 APK 并点击“模拟器中玩”。APK 目前需要 Windows 服务，不包含手机端独立服务器。
+
+启动器使用 `user-data/normal/` 和 `user-data/gallery/` 保存进度。`.frogsave` 导入导出保留照片图层与日记，覆盖前自动备份；也支持兼容的原始 JSON 存档和完整登录抓包。通过新工具建立的存档会跳过仅针对原开发存档的历史修复。[完整使用说明](packaging/USER-GUIDE.md)。
 
 ## 数据与实现依据
 

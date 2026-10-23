@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import time
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -5688,6 +5689,8 @@ def lottery_select(state: dict, selected: list[int], policy: dict | None=None) -
 
 def settle_captured_lottery_phase172(state: dict) -> bool:
     """Apply the captured phase-171 result when the local answer matches it."""
+    if state.get("offline_meta", {}).get("portable_save"):
+        return False
     data = get_lottery_data(state)
     if int(data.get("phase", 0) or 0) != 171 or int(data.get("state", -1)) != LOTTERY_COMPLETE:
         return False
@@ -10468,7 +10471,10 @@ async def serve_client(ws, state: dict) -> None:
             data = req.get("data")
             logging.info("RECV cmd=%s session=%s", cmd, session)
 
-            if cmd == "client.hello":
+            if cmd == "offline.info":
+                await send_response(ws, session, {"edition": "gallery" if GALLERY_MODE else "normal", "protocol": 1})
+
+            elif cmd == "client.hello":
                 await send_response(ws, session, {"timestamp": int(time.time())})
 
             elif cmd == "hall.gen_token":
@@ -12735,7 +12741,7 @@ async def main_async(
 
 
 def main() -> None:
-    global GALLERY_MODE, STATE_FILE, BACKUP_DIR, UNKNOWN_LOG, LOG_FILE
+    global GALLERY_MODE, DATA_DIR, STATE_FILE, BACKUP_DIR, UNKNOWN_LOG, LOG_FILE
     parser = argparse.ArgumentParser(
         description="旅行青蛙个人存档本地服务器 Stage 6I.2（旅行提示/家具替换/年终总结修复 + Stage 6I.1）"
     )
@@ -12747,6 +12753,7 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int)
     parser.add_argument("--gallery", action="store_true", help="使用独立图鉴版存档与日志")
+    parser.add_argument("--data-dir", type=Path, help="存档、备份与日志目录")
     parser.add_argument(
         "--reset-state",
         action="store_true",
@@ -12755,21 +12762,56 @@ def main() -> None:
     args = parser.parse_args()
 
     GALLERY_MODE = bool(args.gallery)
+    if args.data_dir is not None:
+        DATA_DIR = args.data_dir.resolve()
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        STATE_FILE = DATA_DIR / "state.json"
+        BACKUP_DIR = DATA_DIR / "backups"
+        UNKNOWN_LOG = DATA_DIR / "unknown_commands.jsonl"
+        LOG_FILE = DATA_DIR / "server.log"
     if GALLERY_MODE:
         STATE_FILE = DATA_DIR / "gallery_state.json"
         BACKUP_DIR = DATA_DIR / "gallery_backups"
         UNKNOWN_LOG = DATA_DIR / "gallery_unknown_commands.jsonl"
-        LOG_FILE = Path(__file__).resolve().parent / "gallery_server.log"
+        LOG_FILE = DATA_DIR / "gallery_server.log" if args.data_dir is not None else Path(__file__).resolve().parent / "gallery_server.log"
     port = args.port if args.port is not None else (52353 if GALLERY_MODE else 8080)
 
     configure_logging()
 
     try:
-        asyncio.run(
-            main_async(args.snapshot, args.host, port, args.reset_state)
-        )
+        with state_process_lock():
+            asyncio.run(
+                main_async(args.snapshot, args.host, port, args.reset_state)
+            )
     except KeyboardInterrupt:
         logging.info("服务器已停止")
+
+
+@contextmanager
+def state_process_lock(state_file: Path | None = None):
+    """Keep a save owned by exactly one running server process."""
+    state_file = STATE_FILE if state_file is None else state_file
+    path = state_file.with_suffix(".lock")
+    with path.open("a+b") as stream:
+        if stream.tell() == 0:
+            stream.write(b"0")
+            stream.flush()
+        stream.seek(0)
+        if os.name == "nt":
+            import msvcrt
+            try:
+                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+            except OSError as exc:
+                raise RuntimeError(f"已有服务器正在使用这个存档：{state_file}") from exc
+            try:
+                yield
+            finally:
+                stream.seek(0)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            yield
 
 
 if __name__ == "__main__":

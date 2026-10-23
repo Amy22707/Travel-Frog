@@ -4,6 +4,7 @@
 !/.gitattributes
 !/README.md
 !/requirements.txt
+!/requirements-build.txt
 !/docs/
 /docs/*
 !/docs/*.md
@@ -22,6 +23,19 @@
 /client/js/*
 !/client/js/calendar.offline.js
 
+!/desktop/
+/desktop/*
+!/desktop/*.py
+!/packaging/
+/packaging/*
+!/packaging/*.py
+!/packaging/*.spec
+!/packaging/*.md
+!/packaging/android/
+/packaging/android/*
+!/packaging/android/*.smali
+!/packaging/android/*.js
+
 !/tools/
 /tools/*
 !/tools/README.md
@@ -32,6 +46,8 @@
 !/tools/patch_album_pages.py
 !/tools/test_logic_audit.py
 !/tools/test_seasonal_activities.py
+!/tools/test_portable_saves.py
+!/tools/test_desktop_browser.cjs
 !/tools/capture/
 /tools/capture/*
 !/tools/capture/*.py

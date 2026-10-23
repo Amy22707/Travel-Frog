@@ -10,6 +10,8 @@ GitHub 只包含根目录 `.gitignore` 允许的工具源文件。下文提到�
 - `build_gallery_client.py`、`prepare_gallery_apk.py`：客户端差异补丁和旧版 APK 本机构建辅助。
 - `patch_album_pages.py`：相册翻页补丁。
 - `test_logic_audit.py`、`test_seasonal_activities.py`：堆肥、资源数量、返家进度及年度活动回归测试。
+- `test_portable_saves.py`：新建、导入导出、照片保留、版本隔离和存档单进程写入测试。
+- `test_desktop_browser.cjs`：使用独立的 Playwright 测试浏览器验收 Windows 客户端。需要在本机准备构建产物与测试存档。
 
 ## 当前工具
 
