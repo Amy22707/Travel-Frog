@@ -13,7 +13,7 @@ REPO="Amy22707/Travel-Frog"
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag",default="v0.2.0")
+    parser.add_argument("--tag",default="v0.2.1")
     parser.add_argument("--publish",action="store_true",help="Publish after upload; otherwise keep the release as a draft.")
     args=parser.parse_args()
     credential=subprocess.run(["git","credential","fill"],input="protocol=https\nhost=github.com\n\n",
@@ -35,7 +35,7 @@ def main():
     releases=request(api+"/releases")
     release=next((r for r in releases if r["tag_name"]==args.tag),None)
     if release is None:
-        release=request(api+"/releases","POST",{"tag_name":args.tag,"target_commitish":"main","name":"旅行青蛙离线版 v0.2.0",
+        release=request(api+"/releases","POST",{"tag_name":args.tag,"target_commitish":"main","name":"旅行青蛙离线版 "+args.tag,
             "body":"Windows 普通版与图鉴版独立程序、手机独立安卓包及网页离线安装。存档请自行导入；各设备通过 .frogsave 手动迁移进度。", "draft":True})
     assets={a["name"]:a for a in release["assets"]}
     upload=release["upload_url"].split("{")[0]

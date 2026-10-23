@@ -33,6 +33,7 @@ class DesktopGame:
         self.service = self.http = self.logfile = None
         self.game_open = self.busy = False
         self.last_ping = 0
+        self.last_watch = time.monotonic()
         self.closed_at = 0
         self.status = tk.StringVar()
         root.title(self.title)
@@ -164,7 +165,10 @@ class DesktopGame:
 
     def watch(self):
         now = time.monotonic()
-        if self.game_open and ((self.closed_at and now - self.closed_at > 3) or now - self.last_ping > 120):
+        if now - self.last_watch > 120:
+            self.last_ping = now
+        self.last_watch = now
+        if self.game_open and not self.busy and ((self.closed_at and now - self.closed_at > 3) or now - self.last_ping > 120):
             self.close(force=True)
             return
         self.root.after(1500, self.watch)

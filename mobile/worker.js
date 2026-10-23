@@ -34,15 +34,19 @@ self.onmessage = async function (event) {
         } else if(m.type==="create") {
             const result=await py.runPythonAsync("await runtime.create()");
             postMessage({type:"state",data:JSON.parse(result)});
+        } else if(m.type==="info") {
+            postMessage({type:"state",data:JSON.parse(py.runPython("runtime.info()"))});
         } else if(m.type==="import") {
-            const filename=m.name.endsWith(".jsonl")?"import.jsonl":m.name.endsWith(".json")?"import.json":"import.frogsave";
+            const name=m.name.toLowerCase();
+            const filename=name.endsWith(".jsonl")?"import.jsonl":name.endsWith(".json")?"import.json":"import.frogsave";
             py.FS.writeFile("/tmp/"+filename,new Uint8Array(m.bytes));
             const result=await py.runPythonAsync(`await runtime.load_file('${filename}')`);
             postMessage({type:"state",data:JSON.parse(result)});
-        } else if(m.type==="export") {
-            const proxy=await py.runPythonAsync("await runtime.export()");
+        } else if(m.type==="export"||m.type==="export-previous") {
+            const previous=m.type==="export-previous";
+            const proxy=await py.runPythonAsync(previous?"await runtime.export_previous()":"await runtime.export()");
             const bytes=new Uint8Array(proxy.toJs()); proxy.destroy();
-            postMessage({type:"export",bytes:bytes.buffer},[bytes.buffer]);
+            postMessage({type:"export",previous,bytes:bytes.buffer},[bytes.buffer]);
         }
     } catch(error) { postMessage({type:"error",message:String(error)}); }
 };

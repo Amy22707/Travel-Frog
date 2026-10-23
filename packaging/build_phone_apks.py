@@ -50,8 +50,8 @@ sdkInfo:
 packageInfo:
   forcedPackageId: 127
 versionInfo:
-  versionCode: 2
-  versionName: 2.0.0
+  versionCode: 3
+  versionName: 2.0.1
 doNotCompress:
 - arsc
 - png

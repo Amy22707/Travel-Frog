@@ -1,7 +1,9 @@
 /* Verify a phone-local game session with no Python server process. */
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const {chromium,webkit}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..'),folder=path.join(root,'release/TravelFrogMobile');
+const edition=process.argv.includes('--normal')?'normal':'gallery';
 let disconnected=false;
 const types={'.js':'text/javascript','.html':'text/html','.wasm':'application/wasm','.json':'application/json','.webmanifest':'application/manifest+json','.png':'image/png'};
 const server=http.createServer((req,res)=>{
@@ -20,14 +22,55 @@ let browser;
  page.on('pageerror',e=>errors.push(String(e)));
  page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  page.on('worker',worker=>worker.on('console',m=>{if(m.type()==='error')errors.push(m.text());}));
- await page.goto(`http://127.0.0.1:${server.address().port}/index.html?edition=gallery`);
+ await page.goto(`http://127.0.0.1:${server.address().port}/index.html?edition=${edition}`);
  await page.waitForFunction(()=>!document.querySelector('#import').disabled,undefined,{timeout:120000});
- await page.locator('#file').setInputFiles(path.join(root,'.build/qa-browser/gallery/gallery_state.json'));
+ if(process.argv.includes('--create'))await page.locator('#create').click();
+ else await page.locator('#file').setInputFiles(path.join(root,'.build/qa-browser',edition,edition==='gallery'?'gallery_state.json':'state.json'));
  await page.waitForFunction(()=>!document.querySelector('#play').disabled,undefined,{timeout:60000});
+ async function enter(){
+  await page.locator('#play').click();
+  await page.frameLocator('#game').locator('canvas').waitFor({timeout:60000});
+  await page.waitForFunction(()=>{
+   const game=document.querySelector('#game').contentWindow;
+   return game.GameConfig&&game.GameConfig.loadComplete&&game.core.ModelManage.getInstance().getModel(game.UserModel).uid;
+  },undefined,{timeout:120000});
+ }
+ async function rename(name){
+  const game=page.frames().find(f=>f.url().includes('/game/index.html'));
+  await game.evaluate(name=>new Promise((resolve,reject)=>{
+   const socket=new WebSocket('ws://frog-mobile.local');
+   socket.onopen=()=>socket.send(JSON.stringify({cmd:'client.set_name',session:900001,data:{name}}));
+   socket.onmessage=event=>{const reply=JSON.parse(event.data);if(reply.session===900001){socket.close();reply.data.code===0?resolve():reject(Error('rename failed'));}};
+   socket.onerror=reject;
+  }),name);
+  await page.locator('#manage').click();
+  await page.waitForFunction(name=>document.querySelector('#progress').textContent.includes(name),name,{timeout:20000});
+ }
+ if(process.argv.includes('--lifecycle')){await enter();await rename('审查-'+edition+'-A');}
  const downloadPromise=page.waitForEvent('download');
  await page.locator('#export').click();
  const download=await downloadPromise;
- await download.saveAs(path.join(root,'.build/qa-mobile-export.frogsave'));
+ const exported=path.join(root,`.build/qa-mobile-${edition}-export.frogsave`);
+ await download.saveAs(exported);
+ if(process.argv.includes('--lifecycle')){
+  await enter();await rename('审查-'+edition+'-B');
+  await page.locator('#file').setInputFiles(exported);
+  await page.waitForFunction(()=>document.querySelector('#progress').textContent.includes('-A'),undefined,{timeout:60000});
+  await page.waitForFunction(()=>!document.querySelector('#previous').disabled);
+  const previousPromise=page.waitForEvent('download');await page.locator('#previous').click();
+  const previous=await previousPromise,previousPath=path.join(root,`.build/qa-mobile-${edition}-before-import.frogsave`);
+  await previous.saveAs(previousPath);
+  const name=execFileSync('python',['-X','utf8','-c',"import json,zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); s=json.loads(z.read('state.json')); print(next(x['data']['frog']['name'] for x in s['sync_pushes'] if x['cmd']=='client.load_role'))",previousPath],{encoding:'utf8',windowsHide:true}).trim();
+  assert.equal(name,'审查-'+edition+'-B');
+  await page.evaluate(async()=>{
+   await navigator.serviceWorker.ready;
+   const names=await caches.keys(),cache=await caches.open(names.find(n=>n.startsWith('frog-offline-')));
+   await cache.put(new URL('phone.js',location.href),new Response('throw new Error("STALE_APP_CODE")',{headers:{'Content-Type':'text/javascript'}}));
+  });
+  await page.reload();
+  await page.waitForFunction(()=>!document.querySelector('#play').disabled,undefined,{timeout:120000});
+  assert((await page.locator('#progress').textContent()).includes('-A'));
+ }
  if(process.argv.includes('--offline')){
   await page.locator('#cache').click();
   await page.waitForFunction(()=>document.querySelector('#cache').textContent==='离线资源已下载',undefined,{timeout:180000});
@@ -35,15 +78,9 @@ let browser;
   await page.reload();
   await page.waitForFunction(()=>!document.querySelector('#play').disabled,undefined,{timeout:120000});
  }
- await page.locator('#play').click();
- const frame=page.frameLocator('#game');
- await frame.locator('canvas').waitFor({timeout:60000});
- await page.waitForFunction(()=>{
-  const game=document.querySelector('#game').contentWindow;
-  return game.GameConfig&&game.GameConfig.loadComplete&&game.core.ModelManage.getInstance().getModel(game.UserModel).uid;
- },undefined,{timeout:120000});
+ await enter();
  await page.waitForTimeout(5000);
  await page.screenshot({path:path.join(root,'.build/qa-mobile-gallery.png')});
- console.log(JSON.stringify({errors,status:await page.locator('#progress').textContent(),offline:process.argv.includes('--offline')},null,2));
+ console.log(JSON.stringify({edition,errors,status:await page.locator('#progress').textContent(),lifecycle:process.argv.includes('--lifecycle'),offline:process.argv.includes('--offline')},null,2));
  if(errors.length)process.exitCode=1;
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});

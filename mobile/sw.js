@@ -4,6 +4,14 @@ self.addEventListener("activate",event=>event.waitUntil(self.clients.claim()));
 self.addEventListener("fetch",event=>{
     if(event.request.method!=="GET")return;
     event.respondWith(caches.open(CACHE).then(async cache=>{
+        const path=new URL(event.request.url).pathname;
+        const program=/\.(html|js|json|webmanifest)$/.test(path)||path.endsWith("/")||path.endsWith("/python-app.zip");
+        if(program){
+            try{
+                const response=await fetch(event.request);
+                if(response.ok){await cache.put(event.request,response.clone());return response;}
+            }catch(error){}
+        }
         const saved=await cache.match(event.request,{ignoreSearch:true});
         if(saved)return saved;
         const response=await fetch(event.request);

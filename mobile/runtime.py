@@ -37,7 +37,8 @@ def configure(which):
 
 def info():
     name = game.get_role_parts(state)[1].get("name", "呱呱") if state is not None else ""
-    return json.dumps({"exists": state is not None, "name": name, "edition": edition}, ensure_ascii=False)
+    previous = any((ROOT / edition / "import-backups").glob("*.frogsave"))
+    return json.dumps({"exists": state is not None, "name": name, "edition": edition, "hasBackup": previous}, ensure_ascii=False)
 
 
 async def create(name="呱呱"):
@@ -68,6 +69,13 @@ async def export():
     return target.read_bytes()
 
 
+async def export_previous():
+    backups = sorted((ROOT / edition / "import-backups").glob("*.frogsave"))
+    if not backups:
+        raise ValueError("还没有导入前备份。")
+    return backups[-1].read_bytes()
+
+
 class LocalSocket:
     def __init__(self, identifier):
         self.identifier = identifier
@@ -93,10 +101,12 @@ async def serve(identifier):
     socket = LocalSocket(identifier)
     sockets[identifier] = socket
     tasks[identifier] = asyncio.current_task()
-    await game.serve_client(socket, state)
-    sockets.pop(identifier, None)
-    tasks.pop(identifier, None)
-    await persistFiles()
+    try:
+        await game.serve_client(socket, state)
+    finally:
+        sockets.pop(identifier, None)
+        tasks.pop(identifier, None)
+        await persistFiles()
 
 
 def receive(identifier, message):

@@ -11,6 +11,7 @@ function showState(data){
     status.textContent=available?`${data.name}的小小旅程，等你回来。`:"导入你的存档，或开启一段新的旅程。";
     document.querySelector("#play").disabled=!available;
     document.querySelector("#export").disabled=!available;
+    document.querySelector("#previous").disabled=!data.hasBackup;
     document.querySelector("#create").disabled=available;
     document.querySelector("#import").disabled=false;
 }
@@ -21,12 +22,13 @@ worker.onmessage=event=>{
     else if(m.type==="error"){status.textContent=m.message;document.querySelector("#home").style.display="block";}
     else if(m.type==="export"){
         const bytes=new Uint8Array(m.bytes);
+        const filename=`frog-${edition}${m.previous?"-before-import":""}.frogsave`;
         if(window.FrogNative){
             let text="";for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));
-            FrogNative.saveDocument(btoa(text),`frog-${edition}.frogsave`,"application/octet-stream");
+            FrogNative.saveDocument(btoa(text),filename,"application/octet-stream");
         }else{
             const url=URL.createObjectURL(new Blob([bytes],{type:"application/octet-stream"}));
-            const link=document.createElement("a");link.href=url;link.download=`frog-${edition}.frogsave`;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+            const link=document.createElement("a");link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
         }
     }
 };
@@ -50,6 +52,7 @@ document.querySelector("#play").onclick=()=>{
 document.querySelector("#manage").onclick=()=>{
     frame.src="about:blank";frame.style.display="none";document.querySelector("#manage").style.display="none";
     document.querySelector("#home").style.display="block";
+    worker.postMessage({type:"info"});
 };
 document.querySelector("#create").onclick=()=>{status.textContent="正在准备你的旅程……";worker.postMessage({type:"create"});};
 document.querySelector("#import").onclick=()=>{
@@ -58,6 +61,7 @@ document.querySelector("#import").onclick=()=>{
 };
 document.querySelector("#file").onchange=async event=>{const file=event.target.files[0];if(file)importBytes(await file.arrayBuffer(),file.name);event.target.value="";};
 document.querySelector("#export").onclick=()=>worker.postMessage({type:"export"});
+document.querySelector("#previous").onclick=()=>worker.postMessage({type:"export-previous"});
 if(window.FrogNative)document.querySelector("#install").textContent="游戏进度保存在这台手机上。请定期导出存档备份。";
 else if("serviceWorker" in navigator){
     navigator.serviceWorker.register("./sw.js").then(()=>navigator.serviceWorker.ready).then(registration=>{
