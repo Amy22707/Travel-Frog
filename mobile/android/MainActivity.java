@@ -90,7 +90,10 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
         if (result != RESULT_OK || data == null) {
-            if (request == 111) web.evaluateJavascript("window.PhoneNativeSaved(false)", null);
+            if (request == 111) {
+                pending = null;
+                web.evaluateJavascript("window.PhoneNativeSaved(false)", null);
+            }
             return;
         }
         try {
@@ -117,6 +120,10 @@ public class MainActivity extends Activity {
                 web.evaluateJavascript("window.PhoneNativeSaved(true)", null);
             }
         } catch (Exception error) {
+            if (request == 111) {
+                pending = null;
+                web.evaluateJavascript("window.PhoneNativeSaved(false)", null);
+            }
             Log.e("FrogPhone", "File operation failed", error);
             android.widget.Toast.makeText(this, "文件操作失败：" + error.getMessage(), android.widget.Toast.LENGTH_LONG).show();
         }
