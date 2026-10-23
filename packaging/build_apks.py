@@ -31,14 +31,19 @@ def write_bootstrap(game, desktop=False):
     if desktop:
         tags += '''<script>
 var query=new URLSearchParams(location.search);
-window.FROG_SERVER_URL="ws://127.0.0.1:"+Number(query.get("serverPort"));
+window.FROG_SERVER_URL=query.get("mobile")==="1"?"ws://frog-mobile.local":"ws://127.0.0.1:"+Number(query.get("serverPort"));
+function loadMain(){
 var main=document.createElement("script");
 main.src=query.get("edition")==="gallery"?"js/main.gallery.js":"js/main.normal.js";
 main.onload=function(){var shim=document.createElement("script");shim.src="js/offline-shell.js";document.body.appendChild(shim);};
 document.body.appendChild(main);
+}
+if(query.get("mobile")==="1"){
+var bridge=document.createElement("script");bridge.src="../socket.js";bridge.onload=loadMain;document.body.appendChild(bridge);
+}else loadMain();
 </script>'''
     html = '''<!doctype html><html><head><meta charset="utf-8"><title>旅行青蛙·中国之旅</title>
-<link rel="icon" href="data:,">
+<link rel="icon" type="image/png" href="icon.png">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#e9e6c9}</style>
 </head><body><div class="egret-player" data-entry-class="Main" data-orientation="portrait"
@@ -46,7 +51,8 @@ data-scale-mode="fixedHeight" data-frame-rate="60" data-content-width="640" data
 data-multi-fingered="1" data-show-fps="false" style="width:100%;height:100%"></div>
 <script>window.gameLanguage="China";window.cdn="";window.appVersion="offline";
 window.manifestVersion="1088";window.manifestBuild=1;window.resUrl=null;
-window.thmUrl="resource/China/default.thm.json";window.frogCode=null;window.frogArgs=null;</script>
+window.thmUrl="resource/China/default.thm.json";window.frogCode=null;window.frogArgs=null;
+if(new URLSearchParams(location.search).get("edition")==="gallery")document.title="旅行青蛙·中国之旅图鉴版";</script>
 ''' + tags + "</body></html>"
     (game / "index.html").write_text(html, encoding="utf-8")
 
@@ -131,6 +137,7 @@ def main():
     with zipfile.ZipFile(args.base_apk) as z:
         icon = next(name for name in z.namelist() if name.startswith("res/drawable") and name.endswith("/icon2.png"))
         (drawable / "icon.png").write_bytes(z.read(icon))
+        (game / "icon.png").write_bytes(z.read(icon))
     (work / "apktool.yml").write_text('''version: 2.12.1
 apkFileName: Frog.apk
 usesFramework:

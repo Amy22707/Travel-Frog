@@ -1,11 +1,13 @@
 # 架构
 
-两个平台使用原游戏 UI 与资源，连接本机 WebSocket。Windows 启动器管理本地服务，以 Edge 或 Chrome 独立窗口显示游戏；安卓客户端使用轻量 WebView 外壳。服务持有单份内存状态并将变化原子写入对应版本的 JSON 存档。
+各平台使用原游戏 UI 与资源。Windows 启动器管理本机 WebSocket 服务，以 Edge 或 Chrome 独立窗口显示游戏；服务持有单份内存状态并将变化原子写入对应版本的 JSON 存档。安卓独立包和网页应用在设备本地执行同一套逻辑，无需连接 Windows 服务。
+
+手机独立版与 PWA 将同一个服务模块放在 Pyodide Worker 中执行。原客户端的 JSON 请求由本地 WebSocket 桥传入现有 `serve_client`，不会连接电脑或官服。Worker 在独立版本的 IndexedDB 文件系统中保存 JSON 存档，响应前和无响应命令处理后同步落盘。安卓外壳只负责本地资源、原生文件选择与导出，不另写一套玩法。
 
 ```text
-普通版客户端 127.0.0.1:8080 → ADB reverse → Windows 127.0.0.1:52352 → state.json
-图鉴版客户端 127.0.0.1:8081 → ADB reverse → Windows 127.0.0.1:52353 → gallery_state.json
 Windows 游戏窗口 → 本机 HTTP 资源 + 本机 WebSocket → 对应版本存档
+安卓 / PWA 游戏窗口 → 本地协议桥 → Pyodide Worker → 对应版本 IndexedDB 存档
+旧开发用安卓客户端 → ADB reverse → Windows 固定端口 52352 / 52353
 ```
 
 `server/server.py` 负责协议请求、登录同步、旅行和聚会结算、库存、相册与动态照片、访客、家具、手工品、花圃及活动。`server/offline_policy.json` 保存无法从客户端资料中确定、由离线版选择的参数。

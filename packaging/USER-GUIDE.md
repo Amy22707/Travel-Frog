@@ -1,36 +1,37 @@
-# 旅行青蛙离线启动器
+# 旅行青蛙离线版
 
-将整个目录解压到可写入的位置，双击 `FrogLauncher.exe`。保留 `_internal`、`apks` 等文件夹，不要单独移动 EXE。
+Windows 普通版解压后打开 `FrogNormal.exe`，图鉴版打开 `FrogGallery.exe`。保留整个文件夹，不要单独移动 EXE。两个版本无需选择，也不需要安卓模拟器。
 
-`TravelFrog-Windows.zip` 包含电脑版运行环境，不含安卓 APK。需要安卓版本时，将 `FrogNormal.apk` 和 `FrogGallery.apk` 放入启动器旁的 `apks/` 文件夹。
+首次使用可以创建初始进度或导入存档。已有进度时，双击 EXE 会直接打开游戏。游戏窗口使用本机 Edge 或 Chrome；程序与资源均在本机，无需 Python 环境。窗口左下角的“存档”按钮可导出进度或打开存档管理；关闭游戏窗口后，本地服务自动退出。
+
+已有进度但需要导入另一份备份时，先关闭游戏，然后双击 `存档管理.cmd` 打开管理界面，再选择“导入存档”。
 
 ## 开始游戏
 
-Windows 直接游玩：选择版本，创建或导入存档，然后点击“电脑上玩”。启动器使用电脑上的 Edge 或 Chrome 打开独立游戏窗口。游戏资源和服务均在本机，无需安卓模拟器、手机号登录或 Python 环境；游玩时保留启动器运行。
+安卓：安装对应 APK，打开后导入 `.frogsave` 或 JSON 存档，也可以创建初始进度，然后点击“继续旅程”。运行环境、游戏资源和存档都在手机本地，不需要连接电脑、ADB 或 root。
 
-安卓模拟器游玩：
+iPhone / iPad：用 Safari 打开网页版本，从分享菜单选择“添加到主屏幕”。从新图标打开后导入存档，点击“下载离线资源”，等待完成后即可断网游玩。Safari 页面与主屏幕应用可能使用不同存储，建议在主屏幕应用内导入。首次下载约 320 MB，建议使用 Wi-Fi。
 
-1. 启动安卓模拟器并开启 ADB 调试。启动器会尝试查找 ADB，也可以选择模拟器自带的 `adb.exe`。
-2. 在启动器中选择普通版或图鉴版，创建初始存档，或导入自己的离线存档。
-3. 刷新设备，选择模拟器，点击“安装本版本 APK”。两版使用不同包名，可同时安装；不覆盖原游戏。
-4. 点击“进入游戏”。启动器启动 Windows 服务，配置端口转接并打开游戏。
+其他电脑与手机也可以直接打开网页版本。所有版本通过存档文件迁移进度，不会自动同步到另一设备。
 
 普通版按照实际库存与进度游玩。图鉴版使用独立存档，解锁收藏并固定资源数量。新建普通版提供 500 三叶草与三份基础食物。
 
-这些 APK 内置游戏资源，不需要官服更新或手机号登录。当前安卓组合需要 Windows 端服务运行；APK 不是手机独立服务端。
+两个安卓包使用独立包名、独立存档，可以同时安装。不需要官服更新或手机号登录。
 
 ## 存档
 
-- 数据保存在启动器旁的 `user-data/normal/` 和 `user-data/gallery/`。
+- Windows 数据保存在程序旁的 `user-data/normal/` 或 `user-data/gallery/`；安卓数据在应用私有目录；网页数据在当前设备的网站存储中。
 - “导出存档”生成 `.frogsave` 文件，包含当前版本的完整离线状态，包括日记和已经保存的照片图层。
-- 导入支持 `.frogsave`、兼容的 `state.json` 以及完整初始化协议 `.jsonl`。导入前停止对应服务器。
+- 导入支持 `.frogsave`、兼容的 `state.json` 以及完整初始化协议 `.jsonl`。导入前退出当前游戏画面。
 - 导入覆盖前自动备份到该版本的 `import-backups/`；普通版和图鉴版存档不会混用。
 - 官服账号密码不是存档。官服初始化抓包可能只有相册索引，历史照片的准确构图需要额外保存相册详情；导入工具会合并同一抓包中包含的照片图层。
 - 存档包包含个人游戏数据，请自行保管。
 
-升级启动器时保留 `user-data/`，更新程序和资源文件。启动器只停止它自己启动的服务器；如默认端口已被原服务占用，可以先关闭原服务，或在启动器中更改端口。
+Windows 升级时保留 `user-data/`，更新程序和资源文件。安卓升级请覆盖安装；卸载应用会删除本地进度。清理浏览器网站数据也会删除网页存档，请先导出备份。
 
 电脑版保存照片会下载 PNG 文件。安卓版会打开系统的文件保存界面，允许自行选择位置，不需要 root。
+
+官网下载与完整教程：https://amy22707.github.io/studio/travel-frog/ 。其中“从官服保存自己的进度”介绍支持客户端的日志开启、采集、解析、导入与恢复原脚本的过程。
 
 ## 本机构建
 
@@ -41,6 +42,11 @@ python -m pip install --target .build-deps -r requirements-build.txt
 python packaging\build_apks.py
 python packaging\build_windows.py
 python packaging\bundle_release.py
+python packaging\fetch_mobile_runtime.py
+python packaging\build_mobile.py
+python packaging\build_phone_apks.py
 ```
 
-APK 构建使用本机的 Java、Apktool 与签名工具。`build_apks.py --help` 可指定 Java、原 APK、资源镜像和输出位置。构建产物保存在 `release/TravelFrog/`，不进入 Git。
+旧的 `build_apks.py` 用于准备原游戏资源和电脑连接型 APK。独立手机版由 `build_phone_apks.py` 构建。需要本机 Java、Apktool 与签名工具；安卓编译依赖和 Pyodide 下载到 `.build/`。
+
+新构建产物位于 `release/TravelFrogNormal/`、`release/TravelFrogGallery/`、`release/Android/` 和 `release/TravelFrogMobile/`。手机网页目录可以部署到 HTTPS 静态站点的子目录，不需要网站服务端运行 Python。

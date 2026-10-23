@@ -17,6 +17,8 @@ GitHub 只包含根目录 `.gitignore` 允许的工具源文件。下文提到�
 
 ### `capture/`
 
+- `prepare_capture_client.py --input main.original.js --output main.capture.js`：对用户自行提供的匹配版本官方脚本开启分块日志，保留原服务器连接。
+
 - `parse_capture.py`：最初登录快照解析。
 - `parse_action_capture.py`：单次动作抓包解析。
 - `parse_travel_capture.py`：旅行/返家抓包解析。

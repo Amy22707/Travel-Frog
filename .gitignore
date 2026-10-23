@@ -26,6 +26,14 @@
 !/desktop/
 /desktop/*
 !/desktop/*.py
+!/mobile/
+/mobile/*
+!/mobile/*.py
+!/mobile/*.js
+!/mobile/*.html
+!/mobile/android/
+/mobile/android/*
+!/mobile/android/*.java
 !/packaging/
 /packaging/*
 !/packaging/*.py
@@ -48,6 +56,7 @@
 !/tools/test_seasonal_activities.py
 !/tools/test_portable_saves.py
 !/tools/test_desktop_browser.cjs
+!/tools/test_mobile_browser.cjs
 !/tools/capture/
 /tools/capture/*
 !/tools/capture/*.py

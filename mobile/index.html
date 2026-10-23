@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#526b42"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default"><title>旅行青蛙·中国之旅</title>
+<link rel="icon" href="icon.png"><link rel="apple-touch-icon" href="icon-192.png"><link id="manifest" rel="manifest">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f1de;color:#414b37;font:16px -apple-system,BlinkMacSystemFont,"Microsoft YaHei",sans-serif}
+main{max-width:460px;margin:5vh auto;padding:30px;text-align:center}img{width:112px;border-radius:24px}h1{font-size:30px;margin:18px 0 5px}p{line-height:1.7;color:#7d846a}
+button{border:0;border-radius:16px;padding:15px 22px;background:#526b42;color:white;font:inherit;cursor:pointer;margin:7px 0;width:100%}
+button.secondary{background:#e9e4cf;color:#526b42}button:disabled{opacity:.45}small{display:block;color:#7d846a;line-height:1.7;margin-top:20px}
+#game{position:fixed;inset:0;width:100%;height:100%;border:0;display:none;background:#f6f1de}#manage{display:none;position:fixed;z-index:2;bottom:calc(8px + env(safe-area-inset-bottom));left:8px;width:auto;padding:6px 12px;font-size:12px;background:#f6f1ded9;color:#526b42;border:1px solid #a7ad90}
+#progress{min-height:50px;font-size:14px}input{display:none}
+</style></head><body>
+<main id="home"><img src="icon.png" alt="旅行青蛙"><h1>旅行青蛙</h1><p id="editionName">中国之旅</p><p id="progress">正在准备本地运行环境……</p>
+<button id="play" disabled>继续旅程</button><button id="create" class="secondary" disabled>开始新的旅程</button>
+<button id="import" class="secondary" disabled>导入存档</button><input id="file" type="file" accept=".frogsave,.json,.jsonl">
+<button id="export" class="secondary" disabled>导出存档</button><button id="cache" class="secondary" hidden>下载离线资源</button>
+<small id="install">iPhone / iPad：在 Safari 的分享菜单中选择“添加到主屏幕”。首次下载离线资源后，即可离线游玩。请定期导出存档备份。</small>
+</main><iframe id="game" title="旅行青蛙"></iframe><button id="manage">存档</button>
+<script src="phone.js"></script></body></html>

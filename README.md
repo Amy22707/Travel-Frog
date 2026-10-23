@@ -13,7 +13,9 @@
 
 普通版保留实际库存、制作和旅行进度。图鉴版使用独立存档，解锁收藏内容，并按图鉴版规则保持资源数量；部分季节活动常驻。
 
-Windows 启动器可以通过“电脑上玩”打开本机独立游戏窗口，无需安卓模拟器；使用电脑上的 Edge 或 Chrome 显示原游戏界面。安卓 APK 内置资源，通过 ADB reverse 连接 Windows 服务。两版均支持创建初始存档、导入和导出。源码仓库不包含完整游戏资源或构建后的安装包。
+Windows 两个版本分别打开 `FrogNormal.exe` 和 `FrogGallery.exe`，已有存档时直接进入游戏，无需选择版本或安卓模拟器。安卓 APK 将游戏逻辑与资源一起内置，可在手机独立运行。网页版本使用同一套 Python 逻辑在设备本地运行，支持添加到主屏幕和离线缓存。两版均支持创建、导入与导出存档。
+
+下载与网页游玩入口：[旅行青蛙离线小屋](https://amy22707.github.io/studio/travel-frog/)。原游戏资源不进入本仓库源码；完整程序通过单独的发布包提供。
 
 ## 源码目录
 
@@ -25,6 +27,7 @@ Travel-Frog/
 │  └─ config/lunar_festivals.json 农历节日日期
 ├─ client/js/calendar.offline.js  离线日历扩展
 ├─ desktop/                      Windows 启动器与存档管理
+├─ mobile/                       手机本地运行、PWA 与原生安卓外壳
 ├─ packaging/                    EXE、双版本 APK 和本地 Web 资源构建
 ├─ tools/
 │  ├─ capture/                   抓包解析与脱敏代码
@@ -76,11 +79,15 @@ python -m unittest tools.test_logic_audit tools.test_seasonal_activities
 python -m pip install --target .build-deps -r requirements-build.txt
 python packaging\build_apks.py
 python packaging\build_windows.py
+python packaging\bundle_release.py
+python packaging\fetch_mobile_runtime.py
+python packaging\build_mobile.py
+python packaging\build_phone_apks.py
 ```
 
-本机构建输出为 `release/TravelFrog/`。运行 `FrogLauncher.exe`，选择版本后创建或导入存档，再点击“电脑上玩”。安卓用户可以在启动器中选择 ADB 与设备，安装对应 APK 并点击“模拟器中玩”。APK 目前需要 Windows 服务，不包含手机端独立服务器。
+Windows 输出为 `release/TravelFrogNormal/` 和 `release/TravelFrogGallery/`；手机独立 APK 输出为 `release/Android/`；可部署到 HTTPS 站点的网页应用位于 `release/TravelFrogMobile/`。`build_phone_apks.py` 首次构建会下载安卓编译依赖。旧的 `build_apks.py` 仍可构建电脑连接型 APK，并准备公共资源目录。
 
-启动器使用 `user-data/normal/` 和 `user-data/gallery/` 保存进度。`.frogsave` 导入导出保留照片图层与日记，覆盖前自动备份；也支持兼容的原始 JSON 存档和完整登录抓包。通过新工具建立的存档会跳过仅针对原开发存档的历史修复。[完整使用说明](packaging/USER-GUIDE.md)。
+Windows 使用 `user-data/normal/` 或 `user-data/gallery/` 保存进度；手机与网页使用设备本地存储。`.frogsave` 导入导出保留照片图层与日记，覆盖前自动备份；也支持兼容的 JSON 存档和完整登录抓包。不同设备不自动同步进度。通过新工具建立的存档会跳过仅针对原开发存档的历史修复。[完整使用说明](packaging/USER-GUIDE.md)。
 
 ## 数据与实现依据
 

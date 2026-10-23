@@ -6,7 +6,8 @@ const {spawn} = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const playwright = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const edition = process.argv[2] || 'normal';
-const web = path.join(root, 'release/TravelFrog/web/game');
+const release=path.join(root,'release',edition==='gallery'?'TravelFrogGallery':'TravelFrogNormal');
+const web = path.join(release, 'web/game');
 const data = path.join(root, '.build/qa-browser', edition);
 const port = edition === 'gallery' ? 52455 : 52454;
 const types = {'.html':'text/html', '.js':'text/javascript', '.json':'application/json', '.png':'image/png', '.jpg':'image/jpeg'};
@@ -22,7 +23,7 @@ let browser, service;
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const args = ['--data-dir', data, '--port', String(port)];
     if (edition === 'gallery') args.push('--gallery');
-    service = spawn(path.join(root, 'release/TravelFrog/FrogServer.exe'), args, {cwd: root, windowsHide:true, stdio:'ignore'});
+    service = spawn(path.join(release, 'FrogServer.exe'), args, {cwd: root, windowsHide:true, stdio:'ignore'});
     browser = await playwright.chromium.launch({channel:'msedge', headless:true});
     const page = await browser.newPage({viewport:{width:520, height:850}});
     const errors=[];
@@ -47,6 +48,30 @@ let browser, service;
         await page.evaluate(()=>core.PageManage.getInstance().addViewControl(AlbumController,core.ViewLayerType.WindowLayer));
         await page.waitForTimeout(5000);
         await page.screenshot({path:path.join(root, `.build/qa-desktop-${edition}-album.png`)});
+        await page.evaluate(()=>{
+            core.PageManage.getInstance().removeControl(AlbumController,core.ViewLayerType.WindowLayer);
+            core.PageManage.getInstance().addViewControl(ToolBagViewController,core.ViewLayerType.NoticeLayer,core.RemoveViewType.Retain,{});
+        });
+        await page.waitForTimeout(1200);
+        const before=await page.evaluate(()=>{
+            const view=core.PageManage.getInstance().getControl(ToolBagViewController,core.ViewLayerType.NoticeLayer).view;
+            const list=view.list,point=list.localToGlobal(list.width/2,list.height/2),stage=egret.MainContext.instance.stage;
+            const canvas=document.querySelector('canvas').getBoundingClientRect();
+            return {scroll:list.scrollV,x:canvas.left+point.x*canvas.width/stage.stageWidth,y:canvas.top+point.y*canvas.height/stage.stageHeight};
+        });
+        await page.mouse.move(before.x,before.y);
+        await page.mouse.wheel(0,500);
+        await page.waitForTimeout(200);
+        const after=await page.evaluate(()=>core.PageManage.getInstance().getControl(ToolBagViewController,core.ViewLayerType.NoticeLayer).view.list.scrollV);
+        if(after<=before.scroll)throw new Error(`Mouse wheel did not scroll tools: ${before.scroll} -> ${after}`);
+        state.mouseWheel={before:before.scroll,after};
+        await page.screenshot({path:path.join(root,`.build/qa-desktop-${edition}-tools.png`)});
+        await page.evaluate(()=>core.PageManage.getInstance().removeControl(ToolBagViewController,core.ViewLayerType.NoticeLayer));
+        for(const name of ['FurnitureViewController','HandCraftViewController','CameraViewControl','MomentViewControl']){
+            await page.evaluate(name=>core.PageManage.getInstance().addViewControl(window[name],core.ViewLayerType.WindowLayer),name);
+            await page.waitForTimeout(1200);
+            await page.evaluate(name=>core.PageManage.getInstance().removeControl(window[name],core.ViewLayerType.WindowLayer),name);
+        }
     }
     console.log(JSON.stringify({edition,errors,state},null,2));
     if(errors.length) process.exitCode=1;
