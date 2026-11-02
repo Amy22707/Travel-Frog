@@ -8,7 +8,8 @@ const playwright = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const edition = process.argv[2] || 'normal';
 const release=path.join(root,'release',edition==='gallery'?'TravelFrogGallery':'TravelFrogNormal');
 const web = path.join(release, 'web/game');
-const data = path.join(root, '.build/qa-browser', edition);
+const travelerTest=process.argv.includes('--traveler');
+const data = path.join(root, travelerTest?'.build/qa-courtyard':'.build/qa-browser', edition);
 const port = edition === 'gallery' ? 52455 : 52454;
 const types = {'.html':'text/html', '.js':'text/javascript', '.json':'application/json', '.png':'image/png', '.jpg':'image/jpeg'};
 const server = http.createServer((req, res) => {
@@ -44,6 +45,34 @@ let browser, service;
     await page.mouse.click(260, 485);
     await page.waitForTimeout(5000);
     await page.screenshot({path:path.join(root, `.build/qa-desktop-${edition}-courtyard.png`)});
+    if(travelerTest){
+        await page.waitForFunction(()=>{
+            const control=core.PageManage.getInstance().getControl(MainOutController,core.ViewLayerType.SceneLayer);
+            return control&&control.view&&control.view.visitorView_Dragonbones;
+        },undefined,{timeout:30000});
+        state.traveler=await page.evaluate(()=>{
+            const model=core.ModelManage.getInstance().getModel(VisitorModel);
+            const v=model.getVisitorData();
+            const province=v.getProvince();
+            const view=new VisitorView(null);view.open();
+            const end=core.Time.getServerTime()-1;
+            core.SocketManage.getInstance().send('visit_set_expire_time',null,end);
+            v.expire_time=end;
+            const scene=core.PageManage.getInstance().getControl(MainOutController,core.ViewLayerType.SceneLayer).view;
+            scene.updateVisitorGift();
+            if(!scene.i_gift.visible)throw Error('Expired visit gift not shown');
+            const gift=new VisitorGiftView(null);gift.open();
+            model.open();
+            if(!model.getAcquireList().includes(province))throw Error('Province flower not collected');
+            return {name:v.name,province,food:v.food,flower:true};
+        });
+        await page.waitForFunction(()=>!core.ModelManage.getInstance().getModel(VisitorModel).getVisitorData());
+        await page.waitForTimeout(500);
+        const saved=JSON.parse(fs.readFileSync(path.join(data,edition==='gallery'?'gallery_state.json':'state.json'),'utf8'));
+        const visit=saved.sync_pushes.find(x=>x.cmd==='visit.load').data;
+        if(visit.visitor||!visit.acquire.includes(state.traveler.province))throw Error('Visitor claim did not persist');
+        if(saved.offline_meta.gift_box&&saved.offline_meta.gift_box.specialtys?.length)throw Error('Unexpected giftbox change');
+    }
     if (edition === 'gallery') {
         await page.evaluate(()=>core.PageManage.getInstance().addViewControl(AlbumController,core.ViewLayerType.WindowLayer));
         await page.waitForTimeout(5000);

@@ -25,7 +25,7 @@ let browser;
  await page.goto(`http://127.0.0.1:${server.address().port}/index.html?edition=${edition}`);
  await page.waitForFunction(()=>!document.querySelector('#import').disabled,undefined,{timeout:120000});
  if(process.argv.includes('--create'))await page.locator('#create').click();
- else await page.locator('#file').setInputFiles(path.join(root,'.build/qa-browser',edition,edition==='gallery'?'gallery_state.json':'state.json'));
+ else await page.locator('#file').setInputFiles(path.join(root,process.argv.includes('--traveler')?'.build/qa-courtyard':'.build/qa-browser',edition,edition==='gallery'?'gallery_state.json':'state.json'));
  await page.waitForFunction(()=>!document.querySelector('#play').disabled,undefined,{timeout:60000});
  async function enter(){
   await page.locator('#play').click();
@@ -79,6 +79,14 @@ let browser;
   await page.waitForFunction(()=>!document.querySelector('#play').disabled,undefined,{timeout:120000});
  }
  await enter();
+ if(process.argv.includes('--traveler')){
+  const game=page.frames().find(f=>f.url().includes('/game/index.html'));
+  await game.waitForFunction(()=>{
+   const scene=core.PageManage.getInstance().getControl(MainOutController,core.ViewLayerType.SceneLayer);
+   return scene&&scene.view&&scene.view.visitorView_Dragonbones;
+  },undefined,{timeout:30000});
+  console.log('Phone-local courtyard traveler rendered:',await game.evaluate(()=>core.ModelManage.getInstance().getModel(VisitorModel).getVisitorData().name));
+ }
  await page.waitForTimeout(5000);
  await page.screenshot({path:path.join(root,'.build/qa-mobile-gallery.png')});
  console.log(JSON.stringify({edition,errors,status:await page.locator('#progress').textContent(),lifecycle:process.argv.includes('--lifecycle'),offline:process.argv.includes('--offline')},null,2));

@@ -218,6 +218,13 @@ DEFAULT_OFFLINE_POLICY = {
         "served_departure_min_seconds": 7200,
         "served_departure_max_seconds": 14400,
     },
+    "courtyard_traveler": {
+        # Local preservation timing; official server matching is unavailable.
+        "arrival_min_seconds": 172800,
+        "arrival_max_seconds": 432000,
+        "stay_min_seconds": 1200,
+        "stay_max_seconds": 3600,
+    },
     "party": {
         # Return timing/reward probabilities are not present in the current
         # client. These are explicit local preservation-policy defaults.
@@ -9645,6 +9652,65 @@ def _visitor_province_rows() -> list[tuple[str, dict]]:
     return sorted([(str(k), v) for k, v in p.items() if isinstance(v, dict)], key=lambda x: int(x[1].get("ID", 9999)))
 
 
+def schedule_courtyard_traveler(state: dict, now: int, policy: dict) -> None:
+    meta = state.setdefault("offline_meta", {}).setdefault("courtyard_traveler", {})
+    if int(meta.get("next_arrival", 0)) > 0:
+        return
+    timing = policy.get("courtyard_traveler", {})
+    low = max(60, int(timing.get("arrival_min_seconds", 172800)))
+    high = max(low, int(timing.get("arrival_max_seconds", 432000)))
+    meta["next_arrival"] = now + low + deterministic_roll(state, "courtyard_traveler.wait", high - low + 1)
+
+
+def advance_courtyard_traveler(state: dict, now: int | None = None, policy: dict | None = None) -> dict | None:
+    """Simulate a passing frog without online identities or gift-box consumption."""
+    now = int(time.time()) if now is None else int(now)
+    policy = load_offline_policy() if policy is None else policy
+    role = find_push(state, "client.load_role")
+    settings = role.get("data", {}).get("settings", {}).get("client", "{}") if role else "{}"
+    settings = json.loads(settings) if isinstance(settings, str) else settings
+    if not isinstance(settings, dict) or settings.get("guideStep") != "Complete":
+        return None
+    visit = get_visit_state(state)
+    # An expired visit remains a claimable gift, as in the official UI.
+    if isinstance(visit.get("visitor"), dict):
+        return None
+    meta = state.setdefault("offline_meta", {}).setdefault("courtyard_traveler", {})
+    due = int(meta.get("next_arrival", 0))
+    if due <= 0:
+        schedule_courtyard_traveler(state, now, policy)
+        save_state(state, "courtyard_traveler.schedule")
+        return None
+    if now < due:
+        return None
+    rows = _visitor_province_rows()
+    actions = load_static_json("visitors_json.json").get("actionList", {})
+    food_ids = sorted(int(key) for key in actions)
+    if not rows or not food_ids:
+        return None
+    province, info = rows[deterministic_roll(state, "courtyard_traveler.province", len(rows))]
+    first = province not in visit["acquire"]
+    low = int(info.get("CountFloor", 1))
+    high = max(low, int(info.get("CountUpper", low)))
+    count = low + deterministic_roll(state, "courtyard_traveler.gift", high - low + 1)
+    timing = policy.get("courtyard_traveler", {})
+    duration_low = max(60, int(timing.get("stay_min_seconds", 1200)))
+    duration_high = max(duration_low, int(timing.get("stay_max_seconds", 3600)))
+    duration = duration_low + deterministic_roll(state, "courtyard_traveler.stay", duration_high - duration_low + 1)
+    visitor = {
+        "partner": 0, "name": "过路旅蛙", "title": 0,
+        "city": province + "_", "expire_time": now + duration,
+        "food": food_ids[deterministic_roll(state, "courtyard_traveler.food", len(food_ids))],
+        "carpet": 1 + deterministic_roll(state, "courtyard_traveler.carpet", 7),
+        "first": first,
+        "gift": {"item_id": 0 if first else int(info["OtherGiftID"]), "count": 0 if first else count},
+    }
+    visit["visitor"] = visitor
+    meta["next_arrival"] = 0
+    save_state(state, "courtyard_traveler.arrive")
+    return visitor
+
+
 def _consume_one_giftbox_offer(state: dict, policy: dict) -> dict | None:
     """Consume one offered gift when an offline social visit is generated.
 
@@ -9786,10 +9852,14 @@ def reconcile_active_social_visitor_duration(state: dict, now: int | None = None
     return False
 
 
-def apply_visit_open(state: dict, policy: dict | None = None) -> dict | None:
+def apply_visit_open(state: dict, policy: dict | None = None, now: int | None = None) -> dict | None:
+    now = int(time.time()) if now is None else int(now)
+    policy = load_offline_policy() if policy is None else policy
     visit = get_visit_state(state)
     visitor = visit.get("visitor")
     if not isinstance(visitor, dict):
+        return None
+    if int(visitor.get("expire_time", 0)) <= 0 or now < int(visitor["expire_time"]):
         return None
     province = str(visitor.get("city", "")).split("_")[0]
     first = bool(visitor.get("first", False))
@@ -9821,7 +9891,7 @@ def apply_visit_open(state: dict, policy: dict | None = None) -> dict | None:
     visit.pop("visitor", None)
     meta = state.setdefault("offline_meta", {}).setdefault("giftbox_friend", {})
     meta.pop("active_offer", None)
-    _schedule_giftbox_social(state, policy=policy)
+    schedule_courtyard_traveler(state, now, policy)
     save_state(state, f"visit.open:{province}:{'first' if first else 'gift'}")
     return result
 
@@ -10643,6 +10713,7 @@ async def serve_client(ws, state: dict) -> None:
                     friend_event = advance_giftbox_friend(state, policy=policy)
                     if friend_event is not None:
                         logging.info("GIFTBOX FRIEND EVENT ACTIVE %s", friend_event)
+                    advance_courtyard_traveler(state, policy=policy)
                     settled_guest = settle_pending_guest_departure(state)
                     if settled_guest is not None:
                         logging.info("GUEST DEPART SETTLED %s", settled_guest)

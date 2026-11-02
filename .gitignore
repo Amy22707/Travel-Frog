@@ -57,6 +57,7 @@
 !/tools/test_portable_saves.py
 !/tools/test_desktop_browser.cjs
 !/tools/test_desktop_lifecycle.py
+!/tools/test_courtyard_traveler.py
 !/tools/test_mobile_browser.cjs
 !/tools/capture/
 /tools/capture/*

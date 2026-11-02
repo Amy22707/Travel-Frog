@@ -337,6 +337,12 @@
   "calendar": {
     "offline_complete_ad_share_task": true
   },
+  "courtyard_traveler": {
+    "arrival_min_seconds": 172800,
+    "arrival_max_seconds": 432000,
+    "stay_min_seconds": 1200,
+    "stay_max_seconds": 3600
+  },
   "giftbox_friend": {
     "enabled": true,
     "picture_capacity": 30,

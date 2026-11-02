@@ -13,7 +13,7 @@ REPO="Amy22707/Travel-Frog"
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag",default="v0.2.1")
+    parser.add_argument("--tag",default="v0.2.2")
     parser.add_argument("--publish",action="store_true",help="Publish after upload; otherwise keep the release as a draft.")
     parser.add_argument("--asset",action="append",help="Upload only these build filenames; may be repeated.")
     parser.add_argument("--replace-draft-assets",action="store_true",help="Replace selected assets in a draft release.")
