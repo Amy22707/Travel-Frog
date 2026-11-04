@@ -118,6 +118,8 @@ LOTTERY_COMPLETE = 2
 LOTTERY_REWARD = 3
 LOTTERY_CLOVER_ITEM_ID = 200000
 LOTTERY_TICKET_ITEM_ID = 200001
+LOTTERY_WEEK_SECONDS = 7 * 86400
+LOTTERY_PHASE_171_START = 1789142400  # 2026-09-12 00:00 UTC+8
 
 # Stage 6G: official client constants for the permanent shop Gacha.
 # These are preserved in main.min.js; unlike server-side event probabilities,
@@ -2203,7 +2205,11 @@ def refresh_achievements(state: dict, now: int | None = None, *, save: bool = Tr
         if name and item_id >= 0:
             item_ids_by_name.setdefault(name, []).append(item_id)
 
-    owned_list = [int(value) for value in _to_list(frog.get("achieves")) if str(value).lstrip("-").isdigit()]
+    raw_owned = _to_list(frog.get("achieves"))
+    owned_list = [int(value) for value in raw_owned if str(value).lstrip("-").isdigit()]
+    default_missing = 0 not in raw_owned
+    if 0 not in owned_list:
+        owned_list.insert(0, 0)
     owned = set(owned_list)
     targets: set[int] = set()
     create_time = int(misc.get("create_time", now) or now)
@@ -2214,9 +2220,6 @@ def refresh_achievements(state: dict, now: int | None = None, *, save: bool = Tr
         if achievement_id < 0 or row.get("is_special") not in ("", None):
             continue
         info = str(row.get("info", "") or "")
-        if achievement_id == 0 and history:
-            targets.add(achievement_id)
-            continue
         match = re.fullmatch(r"旅行达到(\d+)次", info)
         if match:
             target = 60 if achievement_id == 3 else int(match.group(1))
@@ -2279,6 +2282,10 @@ def refresh_achievements(state: dict, now: int | None = None, *, save: bool = Tr
 
     unlocked = sorted(targets - owned)
     if not unlocked:
+        if default_missing:
+            frog["achieves"] = owned_list
+            if save:
+                save_state(state, "achievement.default_title")
         return []
     frog["achieves"] = [*owned_list, *unlocked]
     pending = state.setdefault("offline_meta", {}).setdefault("achievement_notices", [])
@@ -3986,9 +3993,9 @@ def capsule_record_clover_spend(
 
 
 def capsule_food_is_prepared(state: dict) -> bool:
-    """The second capsule task is satisfied by putting any food on the travel desk."""
-    _, _, _, desk = get_item_parts(state)
-    return any(item_type(int(item_id)) == 0 for item_id in desk if isinstance(item_id, int) and item_id >= 0)
+    """The second capsule task accepts food in the travel bag or on the desk."""
+    _, _, bag, desk = get_item_parts(state)
+    return any(item_type(item_id) == ITEM_LUNCHBOX for item_id in (*bag, *desk) if isinstance(item_id, int) and item_id >= 0)
 
 
 def capsule_patch_tasks(state: dict, policy: dict | None = None) -> tuple[list[int], int]:
@@ -5235,7 +5242,7 @@ def settle_due_travel_return(state: dict, now: int | None=None, policy: dict | N
     encyclopedia_unlocked = unlock_travel_encyclopedia_items(
         state,
         [
-            int(plan.get("food_id", -1) or -1),
+            int(plan.get("food_id", -1)),
             int(plan.get("amulet_id", -1) or -1),
             *[int(item_id) for item_id in _to_list(plan.get("tool_ids"))],
         ],
@@ -5290,6 +5297,7 @@ def settle_due_travel_return(state: dict, now: int | None=None, policy: dict | N
         amulet_id=int(plan.get("amulet_id", -1) or -1),
     )
     place=int(plan.get('place',0) or 0)
+    note_id = roll_travel_observation(state, now)
     meta=state.setdefault('offline_meta',{}); vp=set(int(x) for x in _to_list(meta.get('visited_places'))); vp.add(place); meta['visited_places']=sorted(vp)
     history=meta.setdefault('travel_history',[]); history.append(copy.deepcopy(plan)); history[-1]['returned_at']=now
     if len(history)>200:del history[:-200]
@@ -5304,7 +5312,7 @@ def settle_due_travel_return(state: dict, now: int | None=None, policy: dict | N
     museum_day_record_task_progress(state, "travel", now=now, policy=policy)
     state['format_version']=max(int(state.get('format_version',2) or 2),8)
     save_state(state,f"travel.return:{place}")
-    result={'place':place,'clover':clover,'ticket':ticket,'collection_id':collection,'items':reward_items,'pictures':list(plan.get('picture_ids',[])), 'bonus_pictures':bonus_ids, 'encyclopedia_unlocked': encyclopedia_unlocked, 'achievements_unlocked': unlocked_achievements, 'arranged_decoration': arranged_decoration}
+    result={'place':place,'clover':clover,'ticket':ticket,'collection_id':collection,'items':reward_items,'pictures':list(plan.get('picture_ids',[])), 'bonus_pictures':bonus_ids, 'encyclopedia_unlocked': encyclopedia_unlocked, 'achievements_unlocked': unlocked_achievements, 'arranged_decoration': arranged_decoration, 'note_id': note_id}
     logging.info('TRAVEL RETURN %s',result)
     return result
 
@@ -5617,6 +5625,11 @@ def _lottery_specialty_pool() -> list[int]:
     return sorted({int(x.get("itemId")) for x in static_rows("Specialty_json.json") if int(x.get("itemId", -1)) >= 0})
 
 
+def weekend_lottery_window(now: int) -> tuple[int, bool]:
+    week, elapsed = divmod(now - LOTTERY_PHASE_171_START, LOTTERY_WEEK_SECONDS)
+    return max(1, 171 + week), elapsed < 2 * 86400
+
+
 def ensure_lottery_select_list(state: dict, policy: dict | None=None) -> list[int]:
     if policy is None:
         policy = load_offline_policy()
@@ -5634,7 +5647,8 @@ def ensure_lottery_select_list(state: dict, policy: dict | None=None) -> list[in
     if not bool(lp.get("allow_local_future_phase_pool", True)):
         return current
     count = max(5, int(lp.get("candidate_count", 15) or 15))
-    pool = _lottery_specialty_pool()
+    # Every fourth week is Dudu's plant question, not a food question.
+    pool = list(CAPTURED_LOTTERY_SELECT_LISTS[172]) if phase % 4 == 0 else _lottery_specialty_pool()
     out = []
     while pool and len(out) < count:
         idx = deterministic_roll(state, f"lottery_candidate:{phase}:{len(out)}", len(pool))
@@ -5643,9 +5657,13 @@ def ensure_lottery_select_list(state: dict, policy: dict | None=None) -> list[in
     return out
 
 
-def lottery_open(state: dict, policy: dict | None=None) -> tuple[bool, str, dict, int | None]:
+def lottery_open(state: dict, policy: dict | None=None, *, now: int | None = None) -> tuple[bool, str, dict, int | None]:
     if policy is None:
         policy = load_offline_policy()
+    now = int(time.time()) if now is None else now
+    if not weekend_lottery_window(now)[1]:
+        return False, "outside_weekend", {}, None
+    advance_weekend_lottery(state, now, policy)
     data = get_lottery_data(state)
     if int(data.get("state", LOTTERY_OPEN) or 0) != LOTTERY_OPEN:
         return False, "bad_state", {}, None
@@ -5674,9 +5692,13 @@ def lottery_open(state: dict, policy: dict | None=None) -> tuple[bool, str, dict
     return True, "ok", payload, int(res.get("clover_point", 0) or 0)
 
 
-def lottery_select(state: dict, selected: list[int], policy: dict | None=None) -> tuple[bool, str]:
+def lottery_select(state: dict, selected: list[int], policy: dict | None=None, *, now: int | None = None) -> tuple[bool, str]:
     if policy is None:
         policy = load_offline_policy()
+    now = int(time.time()) if now is None else now
+    if not weekend_lottery_window(now)[1]:
+        return False, "outside_weekend"
+    advance_weekend_lottery(state, now, policy)
     data = get_lottery_data(state)
     if int(data.get("state", LOTTERY_OPEN) or 0) != LOTTERY_SELECT:
         return False, "bad_state"
@@ -5721,6 +5743,42 @@ def settle_captured_lottery_phase172(state: dict) -> bool:
     return True
 
 
+def advance_weekend_lottery(state: dict, now: int, policy: dict | None = None) -> None:
+    """Roll the weekly question forward, keeping one outstanding answer or result."""
+    phase, _ = weekend_lottery_window(now)
+    data = get_lottery_data(state)
+    old_phase = int(data["phase"])
+    old_status = int(data["state"])
+    if old_status == LOTTERY_REWARD:
+        return
+    if old_phase == phase:
+        if not data["select_list"] and ensure_lottery_select_list(state, policy):
+            save_state(state, "lottery.weekly.candidates")
+        return
+    if old_phase > phase:
+        return
+    if old_status == LOTTERY_COMPLETE and data["answer"]:
+        if settle_captured_lottery_phase172(state):
+            return
+        # Sample the host's preferences from the old question, not the new one.
+        candidates = list(dict.fromkeys(data["select_list"] or data["answer"]))
+        liked = set()
+        while candidates and len(liked) < 5:
+            i = deterministic_roll(state, f"lottery.weekly.answer:{old_phase}", len(candidates))
+            liked.add(candidates.pop(i))
+        flags = [int(item in liked) for item in data["answer"]]
+        hits = sum(flags)
+        reward = [{"id": LOTTERY_CLOVER_ITEM_ID, "is_egg": 0, "num": 10 * (1 + hits)}]
+        if hits:
+            reward.append({"id": LOTTERY_TICKET_ITEM_ID, "is_egg": 0, "num": min(3, hits)})
+        data.update(last_phase=old_phase, state=LOTTERY_REWARD, right_flag=flags, reward=reward, egg_num=0)
+    else:
+        data.update(last_phase=phase-1, state=LOTTERY_OPEN, answer=[], right_flag=[], reward=[], egg_num=0)
+    data.update(phase=phase, select_list=[], extra_item={"item_id": 0, "count": 0})
+    ensure_lottery_select_list(state, policy)
+    save_state(state, f"lottery.weekly.rollover:{old_phase}:{phase}")
+
+
 def create_lottery_result_mail(state: dict, rewards: list[dict]) -> dict | None:
     items = []
     for row in rewards:
@@ -5742,7 +5800,9 @@ def create_lottery_result_mail(state: dict, rewards: list[dict]) -> dict | None:
     return mail
 
 
-def lottery_confirm_reward(state: dict) -> tuple[bool, str, dict | None]:
+def lottery_confirm_reward(state: dict, *, now: int | None = None) -> tuple[bool, str, dict | None]:
+    now = int(time.time()) if now is None else now
+    advance_weekend_lottery(state, now)
     data = get_lottery_data(state)
     if int(data.get("state", LOTTERY_OPEN) or 0) != LOTTERY_REWARD:
         return False, "bad_state", None
@@ -5753,6 +5813,9 @@ def lottery_confirm_reward(state: dict) -> tuple[bool, str, dict | None]:
     data["reward"] = []
     data["egg_num"] = 0
     data["extra_item"] = {"item_id": 0, "count": 0}
+    phase, _ = weekend_lottery_window(now)
+    if phase > int(data["phase"]):
+        data.update(phase=phase, last_phase=phase-1, select_list=[])
     ensure_lottery_select_list(state)
     cooking_record_task_progress(state, 7)
     save_state(state, f"lottery.confirm_reward:{int(data.get('phase',0) or 0)}")
@@ -8461,6 +8524,18 @@ def _animpicture_template_for_pic(pic_id: int) -> int | None:
         return None
 
 
+def unlock_animpicture_guide(state: dict) -> bool:
+    """Start the local introduction once a compatible photo is in the album."""
+    data = get_animpicture_state(state)
+    if data["guide"] != 0:
+        return False
+    if not any(_animpicture_template_for_pic(int(row.get("pic_id", -1))) is not None for row in get_album_index(state)):
+        return False
+    data["guide"] = 1
+    save_state(state, "animpicture.unlock_guide")
+    return True
+
+
 def _animpicture_entry(data: dict, anim_index: int) -> tuple[int, dict | None]:
     idx = int(anim_index) - 1
     pics = data.get("pic_list", [])
@@ -9387,7 +9462,7 @@ def unlocked_travel_friend_ids(state: dict) -> list[int]:
     for row in vals:
         if not isinstance(row, dict):
             continue
-        fid = int(row.get("id", -1) or -1)
+        fid = int(row.get("id", -1))
         unlock = int(row.get("visitOpen", -1) or -1)
         if fid >= 0 and unlock in note_ids:
             out.append(fid)
@@ -9920,6 +9995,25 @@ def get_travel_note_state(state: dict) -> dict:
     return data
 
 
+def roll_travel_observation(state: dict, now: int) -> int | None:
+    """Try one eligible, uncollected observation from the official note table."""
+    notes = get_travel_note_state(state)["note_list"]
+    owned = {int(row["id"]) for row in notes if isinstance(row, dict) and "id" in row}
+    candidates = [row for row in load_static_json("Note_json.json").values()
+                  if row.get("type") == 1 and row.get("factorType") == "Drop" and not row.get("attach")
+                  and int(row["id"]) not in owned
+                  and (not row.get("factorType2") or
+                       (row["factorType2"] == "Own_Note" and int(row["factorData2"]) in owned))]
+    if not candidates:
+        return None
+    selected = candidates[deterministic_roll(state, "travel.observation.pick", len(candidates))]
+    if deterministic_roll(state, "travel.observation.drop", 100) >= int(selected["factorData"]):
+        return None
+    note_id = int(selected["id"])
+    notes.append({"id": note_id, "read": False, "timestamp": now})
+    return note_id
+
+
 def apply_travel_read_note(state: dict, ids: Any) -> int:
     idset = set()
     if isinstance(ids, list):
@@ -9964,6 +10058,8 @@ def get_calendar_state(state: dict) -> dict:
     for key in ("new_flag", "lucky_days", "st_days", "task_list"):
         if not isinstance(data.get(key), list):
             data[key] = _to_list(data.get(key))
+    flags = data["new_flag"]
+    flags.extend([0] * (7 - len(flags)))
     return data
 
 
@@ -10152,9 +10248,9 @@ def apply_offline_calendar_policy(state: dict, policy: dict | None = None) -> bo
     if policy is None:
         policy = load_offline_policy()
     cp = policy.get("calendar", {}) if isinstance(policy, dict) else {}
+    cal = get_calendar_state(state)
     if not bool(cp.get("offline_complete_ad_share_task", True)):
         return False
-    cal = get_calendar_state(state)
     tasks = cal.get("task_list", [])
     # Solar-term task id=1 is exactly the ad/share condition in captured data.
     row = next((r for r in tasks if isinstance(r, dict) and int(r.get("id", -1)) == 1), None)
@@ -10175,7 +10271,7 @@ def _calendar_add_item(state: dict, item_id: int, count: int = 1) -> int:
     return get_house_count(house, int(item_id))
 
 
-def apply_calendar_st_reward(state: dict, now: int | None = None) -> tuple[bool, dict]:
+def apply_calendar_st_reward(state: dict, now: int | None = None, reward_day: int | None = None) -> tuple[bool, dict]:
     if now is None:
         now = int(time.time())
     cal = get_calendar_state(state)
@@ -10183,20 +10279,23 @@ def apply_calendar_st_reward(state: dict, now: int | None = None) -> tuple[bool,
     if not tasks or any(not bool(r.get("complete", False)) for r in tasks):
         return False, {"code": 1, "offline_reason": "tasks_incomplete"}
     day = datetime.fromtimestamp(now).day
-    candidates = [r for r in cal.get("st_days", []) if isinstance(r, dict) and int(r.get("item_id", 0) or 0) > 0 and int(r.get("day", 0) or 0) <= day]
+    candidates = [r for r in cal["st_days"] if isinstance(r, dict)
+                  and int(r.get("item_id", 0) or 0) > 0
+                  and 1 <= int(r.get("day", 0) or 0) <= day
+                  and (reward_day is None or int(r["day"]) == reward_day)]
     if not candidates:
         return False, {"code": 1, "offline_reason": "no_solar_term_reward"}
     row = sorted(candidates, key=lambda r: int(r.get("day", 0) or 0))[0]
     item_id = int(row.get("item_id", 0) or 0); reward_day = int(row.get("day", 0) or 0)
     count = _calendar_add_item(state, item_id, 1)
     cal["st_days"] = [r for r in cal["st_days"] if r is not row]
-    # Exact client callback resets task 1 after claiming; mirror it server-side.
+    # Offline play fulfills the ad task automatically when the policy is enabled.
+    auto_share = load_offline_policy().get("calendar", {}).get("offline_complete_ad_share_task", True)
     t1 = next((r for r in tasks if int(r.get("id", -1)) == 1), None)
     if t1 is not None:
-        # Client callback only clears complete; it does not zero pro.
-        t1["complete"] = False
+        t1["complete"] = bool(auto_share)
     save_state(state, f"calendar.get_st_reward:{reward_day}:{item_id}")
-    return True, {"code": 0, "day": reward_day, "item_id": item_id, "item_count": count}
+    return True, {"code": 0, "day": reward_day, "item_id": item_id, "item_count": count, "task": t1}
 
 
 def apply_calendar_lucky_reward(state: dict, now: int | None = None) -> tuple[bool, dict]:
@@ -10227,8 +10326,10 @@ def apply_calendar_beginner_reward(state: dict, code: str | None = None) -> tupl
     else:
         # Client's normal beginner button expects the current creation-day slot.
         _, _, _, misc = get_role_parts(state)
-        create_time = int(misc.get("create_time", int(time.time())) or int(time.time()))
-        target_day = max(1, min(7, (int(time.time()) - create_time) // 86400 + 1))
+        now = int(time.time())
+        create_time = int(misc.get("create_time") or now)
+        # Match core.getOffsetDay, which uses midnight in China (UTC+8).
+        target_day = (now + 28800) // 86400 - (create_time + 28800) // 86400 + 1
     row = rows.get(str(int(target_day))) if target_day is not None else None
     if not isinstance(row, dict):
         return False, {"day": 0, "code": 1}
@@ -10738,10 +10839,10 @@ async def serve_client(ws, state: dict) -> None:
                     refresh_home_frog_motion(state, policy=policy)
                     sync_home_easter_egg(state, policy=policy)
                     reconcile_album_transfer_state(state)
+                    unlock_animpicture_guide(state)
                     children_day_claimed = claim_children_day_login_reward(state)
                     refresh_achievements(state)
-                    if settle_captured_lottery_phase172(state):
-                        logging.info("LOTTERY CAPTURED RESULT SETTLED phase=172")
+                    advance_weekend_lottery(state, int(time.time()), policy)
                 except Exception:
                     logging.exception("推进本地登录/旅行/聚会/访客状态失败")
                 pushes = state.get("sync_pushes", [])
@@ -10999,10 +11100,8 @@ async def serve_client(ws, state: dict) -> None:
                             },
                         )
 
-                    if area == "desk" and action == "putin" and changed_item is not None:
-                        cfg = item_cfg(int(changed_item)) or {}
-                        if int(cfg.get("type", -1) or -1) == 0:
-                            await complete_capsule_task_and_push(2, "food_on_travel_desk")
+                    if action == "putin" and item_id is not None and item_type(int(item_id)) == ITEM_LUNCHBOX:
+                        await complete_capsule_task_and_push(2, f"food_in_{area}")
 
                     await send_response(ws, session, {"conflict": False})
                     logging.info(
@@ -11468,7 +11567,8 @@ async def serve_client(ws, state: dict) -> None:
 
             elif cmd == "calendar.get_st_reward":
                 try:
-                    ok, out = apply_calendar_st_reward(state)
+                    day = request_argument(data, "day")
+                    ok, out = apply_calendar_st_reward(state, reward_day=int(day) if day is not None else None)
                     if ok:
                         await send_json(ws, {"cmd": "item.update", "data": {"item": {"item_id": out["item_id"], "count": out["item_count"]}}})
                     await send_response(ws, session, out)
@@ -11507,6 +11607,8 @@ async def serve_client(ws, state: dict) -> None:
             elif cmd == "lottery.confirm_reward":
                 try:
                     ok, reason, mail = lottery_confirm_reward(state)
+                    if ok:
+                        await send_json(ws, {"cmd": "lottery.load", "data": copy.deepcopy(get_lottery_data(state))})
                     await send_response(ws, session, {"code": 0} if ok else {"code": 1, "offline_blocked": True, "reason": reason})
                     if mail is not None:
                         await send_json(ws, {"cmd": "notify.new_mail", "data": {"mail": copy.deepcopy(mail)}})

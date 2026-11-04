@@ -79,6 +79,20 @@ let browser;
   await page.waitForFunction(()=>!document.querySelector('#play').disabled,undefined,{timeout:120000});
  }
  await enter();
+ if(process.argv.includes('--viewport')){
+  const game=page.frames().find(f=>f.url().includes('/game/index.html'));
+  assert(await page.locator('h1 img').evaluate(img=>img.complete&&img.naturalWidth>0));
+  await game.evaluate(()=>{window.__viewportQA=true;});
+  await page.setViewportSize({width:850,height:420});
+  await page.locator('#rotate').waitFor({state:'visible'});
+  assert.equal(await page.locator('#game').isVisible(),false);
+  await page.setViewportSize({width:360,height:850});
+  await page.locator('#game').waitFor({state:'visible'});
+  assert.equal(await game.evaluate(()=>window.__viewportQA),true);
+  const shifted=await page.locator('#gameViewport').evaluate(node=>{node.scrollLeft=70;return node.scrollLeft;});
+  assert(shifted>0,'narrow view must scroll horizontally');
+  console.log('Portrait restored without a reload; narrow viewport scrolls horizontally.');
+ }
  if(process.argv.includes('--traveler')){
   const game=page.frames().find(f=>f.url().includes('/game/index.html'));
   await game.waitForFunction(()=>{

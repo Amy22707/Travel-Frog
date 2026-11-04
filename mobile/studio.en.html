@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Play Travel Frog: A Journey to China offline on the web, Windows or Android.">
+<meta name="theme-color" content="#294f3e"><title>Travel Frog: A Journey to China — Amy Studio</title>
+<link rel="icon" href="play/icon.png">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<header class="top"><div class="shell"><a class="brand" href="https://amy22707.github.io/amy-studio/">Amy Studio<span>.</span></a><nav aria-label="Page navigation"><a href="index.html" lang="zh-CN" hreflang="zh-CN">中文</a><a href="#versions">Play and download</a><a href="#guide">User guide</a></nav></div></header>
+<main class="shell">
+<div class="hero"><h1>Travel Frog: A Journey to China</h1><img src="play/icon-192.png" width="170" height="170" alt=""></div>
+<div class="grid" id="versions">
+<article class="card"><span class="edition">NORMAL EDITION</span><h2>Normal</h2><p>Pack for trips, collect postcards and craft items as you progress. Start a new journey or import your own save.</p><a class="button" href="play/index.html?edition=normal">Play in your browser ↗</a><div class="downloads"><a href="https://github.com/Amy22707/Travel-Frog/releases/latest/download/TravelFrogNormal-Windows.zip">Windows ZIP ↓</a><a href="https://github.com/Amy22707/Travel-Frog/releases/latest/download/FrogNormal.apk">Android APK ↓</a></div></article>
+<article class="card"><span class="edition">GALLERY EDITION</span><h2>Gallery</h2><p>Start with equipment, furniture, stories, titles, the friendship book and collections unlocked. Fixed postcards and materials for animated photos are available from the start. Currency and common consumables stay at fixed quantities. Mid-Autumn, Lunar New Year and anniversary events run year-round. This edition has its own save.</p><a class="button" href="play/index.html?edition=gallery">Play in your browser ↗</a><div class="downloads"><a href="https://github.com/Amy22707/Travel-Frog/releases/latest/download/TravelFrogGallery-Windows.zip">Windows ZIP ↓</a><a href="https://github.com/Amy22707/Travel-Frog/releases/latest/download/FrogGallery.apk">Android APK ↓</a></div></article>
+</div>
+<nav class="contents" id="guide" aria-label="Guide contents"><a href="#windows">Windows</a><a href="#android">Android</a><a href="#ios">iPhone, iPad and web</a><a href="#saves">Move a save</a><a href="#official">Official-server backup</a><a href="#faq">Help</a></nav>
+<section id="windows"><h2>Windows</h2><ol>
+<li>Download the <a href="https://github.com/Amy22707/Travel-Frog/releases/latest/download/TravelFrogSetup.exe">Windows installer</a>. Open it, choose an edition and click 安装 (Install). The installer downloads the edition to <code>%LOCALAPPDATA%\TravelFrog</code>. You can also download and extract an edition's ZIP yourself.</li>
+<li>Open <code>FrogNormal.exe</code> for Normal or <code>FrogGallery.exe</code> for Gallery. The game runs in a dedicated Edge or Chrome window on 64-bit Windows 10 or 11.</li>
+<li>Choose 导入存档 (Import save) or 开始新的旅程 (Start a new journey). With a save in place, the launcher opens the game directly.</li>
+<li>To export, click 存档 (Save) at the bottom left. To import a different save, close the game, then open <code>存档管理.cmd</code> and choose 导入存档. Keep <code>user-data</code> when updating the game.</li>
+</ol></section>
+<section id="android"><h2>Android</h2><ol>
+<li>Download and install the APK for your edition. If Android asks for permission to install unknown apps, allow it for the browser or file manager you are using. You can revoke it after installation.</li>
+<li>Open the app, then import a save or start a new journey. The editions have separate app icons and saves. They can coexist with the official app.</li>
+<li>To export, return to the start screen using 存档 (Save) and choose 导出存档 (Export save). Use Android's file picker to choose where to save the file.</li>
+</ol><p>Requires Android 7 or later and a System WebView that supports WebAssembly. Update Android System WebView or Chrome if loading stalls. Export your save before uninstalling.</p></section>
+<section id="ios"><h2>iPhone, iPad and web</h2><ol>
+<li>Use the play link above. On iPhone or iPad, open it in Safari and choose Share → Add to Home Screen.</li>
+<li>Open the new home-screen icon and import a save or start a new journey there. Safari and the installed web app may store progress separately.</li>
+<li>For offline play, click 下载离线资源 (Download offline resources) and keep the page open until the download finishes. The full download is about 320 MB.</li>
+</ol><p>Other devices can play directly in the browser. Export a save before switching browsers, clearing site data or removing the app.</p></section>
+<section id="saves"><h2>Move a save between devices</h2><ol>
+<li>Export a <code>.frogsave</code> file from the device with your latest progress.</li>
+<li>Transfer the file to the new device and import it into the same edition. Confirm your frog's name, album and inventory after opening the game.</li>
+<li>Importing over an existing save creates a backup. On Android and the web, use 导出上次导入前的备份 (Export previous save). On Windows, find it in the save folder under <code>import-backups</code>.</li>
+</ol><p>The export includes your travel diary and saved photo layers. Compatible offline JSON saves can also be imported into their matching edition. Devices keep their own progress and use these files to transfer it.</p></section>
+<section id="official"><h2>Back up your progress from the official server</h2>
+<p>You need an official client that can still sign in, a Windows PC with Python 3.10+ and ADB, and a rooted Android device or emulator that can read the official app's files.</p>
+<details><summary>A. Save the original client script</summary><p>Close the official app. In CMD, connect to the device, open a shell, become root and locate the hot-update script:</p>
+<pre><code>adb shell
+su
+find /data/data/com.aligames.lxqw.hhb/files -type f -path '*/main.min.js#/*'</code></pre>
+<p>Identify the exact file used by the running client. Replace <code>EXACT_PATH</code> below with its full path and make a backup from the root shell:</p>
+<pre><code>cat "EXACT_PATH" &gt; /sdcard/Download/main.original.js
+exit
+exit
+adb pull /sdcard/Download/main.original.js main.original.js</code></pre></details>
+<details><summary>B. Capture your official login and album</summary><p>Download and extract the <a href="https://github.com/Amy22707/Travel-Frog">project source</a>. Open CMD in that directory and prepare the logging patch. Put <code>main.original.js</code> in the same directory first.</p>
+<pre><code>python tools\capture\prepare_capture_client.py --input main.original.js --output main.capture.js
+adb push main.capture.js /sdcard/Download/main.capture.js
+adb shell
+su
+cat /sdcard/Download/main.capture.js &gt; "EXACT_PATH"
+exit
+exit</code></pre>
+<p>Open a separate CMD window and start capture before opening the official app:</p>
+<pre><code>adb logcat -v threadtime &gt; official_raw_logcat_LOCAL_ONLY.txt</code></pre>
+<p>Sign in and wait for your courtyard and room to load. Visit your albums, gift box, recycle bin, animated photos, diary and other screens whose progress you want to keep. Open individual photos to capture their layers. Close the app, then stop logging with Ctrl+C.</p></details>
+<details><summary>C. Import your backup and restore the client</summary>
+<pre><code>python tools\capture\parse_warehouse_capture.py --src official_raw_logcat_LOCAL_ONLY.txt --out official-backup</code></pre>
+<p>Check the generated summaries for missing data or parsing errors. Import <code>official-backup\protocol_full_LOCAL_ONLY.jsonl</code> into the Normal edition, then export a <code>.frogsave</code>. Keep the raw log and full protocol file on your own device. Restore the original script while the official app is closed:</p>
+<pre><code>adb push main.original.js /sdcard/Download/main.original.js
+adb shell
+su
+cat /sdcard/Download/main.original.js &gt; "EXACT_PATH"
+exit
+exit</code></pre></details>
+</section>
+<section id="faq"><h2>Help</h2><p>If a save appears missing, check that you opened the same edition and browser or installed web app. Your save stays on your device. The offline game uses a local travel diary in place of message bottles. Live multiplayer features and leaderboards require the official service.</p><p>Report issues with your device, edition and steps to reproduce. Keep personal saves and raw captures private.</p></section>
+</main>
+<footer class="shell"><div class="links"><a href="https://amy22707.github.io/amy-studio/">Amy Studio</a><a href="https://github.com/Amy22707/Travel-Frog">Source</a><a href="https://github.com/Amy22707/Travel-Frog/releases">Downloads</a></div><p>An unofficial preservation project. Original code, artwork, audio and trademarks belong to their respective owners.</p></footer>
+</body>
+</html>

@@ -43,7 +43,7 @@ def new_state(name: str = "呱呱") -> dict:
         "client.load_role": {
             "uid": 1, "misc": {"picture_cnt": 0, "create_time": now, "wx_my_reward": False, "wx_push_reward": False},
             "frog": {"name": name.strip() or "呱呱", "status": 0, "motion": 1, "icon": 0,
-                     "today_step": 0, "achieves": [], "achieves_time": {}, "cur_achieve": 0},
+                     "today_step": 0, "achieves": [0], "achieves_time": {}, "cur_achieve": 0},
             "res": {"clover_point": 500, "ticket": 0},
             "settings": {"lang": "zh-CN", "push_switch": False, "rank_switch": False, "client": "{}"},
         },
@@ -69,8 +69,7 @@ def new_state(name: str = "呱呱") -> dict:
         "furniture.load_furniture": {"replace_fur": [], "put_fur": puts, "has_fur": [r["id"] for r in puts],
                                      "bench": [-1]*10, "bench_lock": False, "mate_list": [], "mood": 0,
                                      "shop": {"start_time": 0, "leave_time": 0, "shop_list": []}},
-        "furniture.load_tumbler": {"replace_index": 0, "show_index": 1,
-                                   "tumbler_list": [{"id": 20011, "layers": [{"layer": [1106, -3, 3, 5, 0]}, {"layer": [2001, -3, 0, 0, 0]}]}]},
+        "furniture.load_tumbler": {"replace_index": 0, "show_index": 0, "tumbler_list": []},
         "furniture.load_compost": {"replace_index": 0, "compost_list": [21000], "show_index": 1,
                                    "box_index": 0, "state": 0, "box_list": [0]*6},
         "furniture.load_pocket": {"replace_index": 0, "list": [22001], "clover": 0, "show_index": 1},

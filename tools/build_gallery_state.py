@@ -50,11 +50,15 @@ def complete_special_furniture(state: dict) -> None:
     }
     tumbler.extend({"id": item_id, "layers": []} for item_id in sorted(tumbler_ids - owned_tumblers))
     layered = {int(row["id"]): row["layers"] for row in tumbler if row.get("layers")}
+    default_layers = [{"layer": [1106, -3, 3, 5, 0]}, {"layer": [2001, -3, 0, 0, 0]}]
     for row in tumbler:
         if not row.get("layers"):
             family = int(row["id"]) // 10
-            donor = next((layers for item_id, layers in layered.items() if item_id // 10 == family), layered[20011])
+            donor = next((layers for item_id, layers in layered.items() if item_id // 10 == family), layered.get(20011, default_layers))
             row["layers"] = copy.deepcopy(donor)
+    data = payload(state, "furniture.load_tumbler")
+    if tumbler and not data.get("show_index"):
+        data["show_index"] = 1
     for command, field, filename in (
         ("furniture.load_compost", "compost_list", "compostData_json.json"),
         ("furniture.load_pocket", "list", "pocketData_json.json"),

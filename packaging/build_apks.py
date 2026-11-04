@@ -6,10 +6,30 @@ import argparse
 import json
 import shutil
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+
+def write_startup_assets(game):
+    from tools.resources.scan_eab_cache import parse_eab
+
+    assets, offset, raw = parse_eab(game / "resource/China/eab/preload.eab")
+    names = {"new_title.png", "loading.png", "loading_off.png", "loading_on.png", "loading_dorai.png"}
+    out = game / "startup"
+    out.mkdir(exist_ok=True)
+    for asset in assets:
+        length = int(asset["s"])
+        name = Path(asset["f"]).name
+        if name in names:
+            (out / name).write_bytes(raw[offset:offset + length])
+            names.remove(name)
+        offset += length
+    if names:
+        raise ValueError(f"Missing startup textures: {sorted(names)}")
 
 
 def release_client(filename):
@@ -19,10 +39,20 @@ def release_client(filename):
     if code.count(old) != 4:
         raise ValueError(f"Unexpected offline endpoint count in {filename}")
     code = code.replace(old, f'(window.FROG_SERVER_URL||{old})')
+    for old, new in (
+        ('calendar_get_st_reward:[[],!0]', 'calendar_get_st_reward:[["day"],!0]'),
+        ('void t.getModel(CalendarModel).req_beginer_reward()', 'void t.getModel(CalendarModel).req_beginer_reward(p)'),
+        ('o>=s&&n[r]?(a=n[r].item_id', 'o>=s&&n[r]&&(o>s||u.getModel(CalendarModel).canGetBeginnerReward())?(a=n[r].item_id'),
+        ('a&&u.getModel(CalendarModel).canGetStReward()&&(h=!0)', 'a&&o<=s&&u.getModel(CalendarModel).canGetStReward()&&(h=!0)'),
+    ):
+        if code.count(old) != 1:
+            raise ValueError(f"Unexpected calendar code in {filename}: {old}")
+        code = code.replace(old, new)
     return code.replace('return t.timeout=2e3,t', 'return t.timeout=15e3,t')
 
 
 def write_bootstrap(game, desktop=False):
+    write_startup_assets(game)
     manifest = json.loads((game / "manifest.json").read_text(encoding="utf-8"))
     scripts = manifest["initial"] + ["js/default.thm.js"]
     if not desktop:
@@ -31,6 +61,7 @@ def write_bootstrap(game, desktop=False):
     if desktop:
         tags += '''<script>
 var query=new URLSearchParams(location.search);
+if(query.get("desktopApp")==="1")document.body.classList.add("desktop-game");
 window.FROG_SERVER_URL=query.get("mobile")==="1"?"ws://frog-mobile.local":"ws://127.0.0.1:"+Number(query.get("serverPort"));
 function loadMain(){
 var main=document.createElement("script");
@@ -45,8 +76,18 @@ var bridge=document.createElement("script");bridge.src="../socket.js";bridge.onl
     html = '''<!doctype html><html><head><meta charset="utf-8"><title>旅行青蛙·中国之旅</title>
 <link rel="icon" type="image/png" href="icon.png">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#e9e6c9}</style>
-</head><body><div class="egret-player" data-entry-class="Main" data-orientation="portrait"
+<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff}
+#frog-loading{position:fixed;inset:0;z-index:5;display:grid;place-content:center;justify-items:center;gap:clamp(12px,3vh,28px);background:#fff;pointer-events:none}
+#frog-loading img{width:min(76vw,350px);height:auto}#frog-loading .reading{width:min(35vw,150px)}
+#frog-loading .frog{width:min(45vw,220px);aspect-ratio:280/118;background:url(startup/loading_dorai.png) center 66.7%/274.3% auto no-repeat}
+.desktop-game{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:transparent transparent}.desktop-game:hover{scrollbar-color:#526b4266 transparent}.desktop-game .egret-player{min-width:56.338vh}
+#desktop-rotate{display:none}
+@media (orientation:landscape){.desktop-game .egret-player,.desktop-game #frog-loading{visibility:hidden}.desktop-game #desktop-rotate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;text-align:center;background:#fff;color:#414b37;font:16px sans-serif}}
+#frog-loading .bar{width:min(58vw,300px);height:clamp(14px,2.5vh,26px);background:url(startup/loading_off.png) center/100% 100%;overflow:hidden}
+#frog-loading .bar::before{content:"";display:block;width:100%;height:100%;background:url(startup/loading_on.png) center/100% 100%;animation:read 1.7s ease-in-out infinite alternate;transform-origin:left}
+@keyframes read{from{transform:scaleX(.16)}to{transform:scaleX(.94)}}
+</style>
+</head><body><div id="frog-loading" role="status" aria-label="正在读取中"><img src="startup/new_title.png" alt="旅行青蛙·中国之旅"><img class="reading" src="startup/loading.png" alt=""><div class="bar"></div><div class="frog"></div></div><div id="desktop-rotate">请将窗口调整为竖屏比例。</div><div class="egret-player" data-entry-class="Main" data-orientation="portrait"
 data-scale-mode="fixedHeight" data-frame-rate="60" data-content-width="640" data-content-height="1136"
 data-multi-fingered="1" data-show-fps="false" style="width:100%;height:100%"></div>
 <script>window.gameLanguage="China";window.cdn="";window.appVersion="offline";

@@ -11,13 +11,12 @@ def main():
     if not (source / "index.html").exists():
         raise FileNotFoundError("Run prepare_site.py --out release/TravelFrogWeb first.")
     target = ROOT / "release/TravelFrogWeb.zip"
-    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=3) as archive:
+    temporary = target.with_suffix(".zip.tmp")
+    with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED, compresslevel=3) as archive:
         for file in source.rglob("*"):
             if file.is_file():
                 archive.write(file, file.relative_to(source))
-        studio = ROOT / "release/FrogStudioEntry.zip"
-        if studio.exists():
-            archive.write(studio, "studio-entry.zip")
+    temporary.replace(target)
     print(target, flush=True)
 
 

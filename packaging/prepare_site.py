@@ -22,6 +22,8 @@ def main():
             raise RuntimeError("Personal save or historical album in runtime archive")
     args.out.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(ROOT/"mobile/studio.html",args.out/"index.html")
+    shutil.copyfile(ROOT/"mobile/studio.en.html",args.out/"en.html")
+    shutil.copyfile(ROOT/"mobile/studio.css",args.out/"studio.css")
     shutil.copytree(source,args.out/"play",dirs_exist_ok=True)
     print(args.out,flush=True)
 

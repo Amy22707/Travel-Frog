@@ -18,7 +18,7 @@ from tkinter import filedialog, messagebox
 from desktop.launcher import CREATE_NO_WINDOW, ROOT, FROZEN, find_browser
 from desktop.saves import create_save, export_save, import_save, save_path
 
-CREAM = "#f6f1de"
+CREAM = "#ffffff"
 GREEN = "#526b42"
 INK = "#414b37"
 MUTED = "#81866e"
@@ -45,10 +45,9 @@ class DesktopGame:
         if icon.exists():
             self.icon = tk.PhotoImage(file=str(icon))
             root.iconphoto(True, self.icon)
-            tk.Label(root, image=self.icon, bg=CREAM).pack(pady=(32, 12))
-        tk.Label(root, text="旅行青蛙", font=("Microsoft YaHei UI", 25, "bold"), fg=INK, bg=CREAM).pack()
-        tk.Label(root, text="中 国 之 旅" + ("  ·  图鉴版" if edition == "gallery" else ""),
-                 font=("Microsoft YaHei UI", 11), fg=MUTED, bg=CREAM).pack(pady=(4, 16))
+        tk.Label(root, text="旅行青蛙·中国之旅", font=("Microsoft YaHei UI", 24, "bold"), fg=INK, bg=CREAM).pack(pady=(42, 16))
+        if edition == "gallery":
+            tk.Label(root, text="图鉴版", font=("Microsoft YaHei UI", 11), fg=MUTED, bg=CREAM).pack(pady=(4, 16))
         tk.Label(root, textvariable=self.status, font=("Microsoft YaHei UI", 10), fg=INK, bg=CREAM,
                  wraplength=440).pack(pady=(0, 20))
         self.button("继续旅程" if self.path.exists() else "开始新的旅程", self.play, GREEN, "white")
@@ -57,8 +56,6 @@ class DesktopGame:
         for label, fn in (("导入存档", self.import_file), ("导出存档", self.export_file), ("存档文件夹", self.open_folder)):
             tk.Button(row, text=label, command=fn, bg=CREAM, fg=GREEN, relief="flat", borderwidth=0,
                       font=("Microsoft YaHei UI", 10), cursor="hand2", padx=15, pady=8).pack(side="left")
-        tk.Label(root, text="在自己的小世界里，慢慢旅行。", font=("Microsoft YaHei UI", 9),
-                 fg=MUTED, bg=CREAM).pack(side="bottom", pady=18)
         self.update_status()
         root.after(1500, self.watch)
 
@@ -72,11 +69,11 @@ class DesktopGame:
             try:
                 state = json.loads(self.path.read_text(encoding="utf-8"))
                 role = next(row["data"] for row in state["sync_pushes"] if row["cmd"] == "client.load_role")
-                self.status.set(f"{role['frog']['name']}的小小旅程，等你回来。")
+                self.status.set(role['frog']['name'])
             except (OSError, ValueError, KeyError, StopIteration):
-                self.status.set("请导入一份完整存档，继续你的旅程。")
+                self.status.set("请导入一份完整存档。")
         else:
-            self.status.set("开启一段新的旅程，或带上你原来的存档。")
+            self.status.set("")
 
     def run(self, fn):
         if self.busy:
@@ -102,7 +99,7 @@ class DesktopGame:
             self.root.after(0, self.root.withdraw)
             return
         if not self.path.exists():
-            self.status.set("正在准备你的旅程……")
+            self.status.set("正在创建存档……")
             create_save(self.data_root, self.edition)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # An available port lets the packaged games coexist with a developer server.

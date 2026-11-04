@@ -1,5 +1,4 @@
 /* Python protocol worker; all runtime files are packaged locally. */
-importScripts("./pyodide/pyodide.js");
 let py, ready, syncing = Promise.resolve();
 self.persistFiles = function () {
     syncing = syncing.then(() => new Promise((resolve, reject) => py.FS.syncfs(false, error => error ? reject(error) : resolve())));
@@ -7,12 +6,16 @@ self.persistFiles = function () {
 };
 self.postProtocol = function (socket, data) { postMessage({type:"protocol", socket, data}); };
 async function initialize(edition) {
+    postMessage({type:"loading",message:"正在加载本地运行环境……"});
+    importScripts("./pyodide/pyodide.js");
     py = await loadPyodide({indexURL:"./pyodide/"});
+    postMessage({type:"loading",message:"正在加载游戏逻辑……"});
     const response = await fetch("./python-app.zip");
     if (!response.ok) throw new Error("本地游戏逻辑未能读取。");
     py.unpackArchive(new Uint8Array(await response.arrayBuffer()), "zip", {extractDir:"/app"});
     py.FS.mkdirTree("/persistent/"+edition);
     py.FS.mount(py.FS.filesystems.IDBFS, {}, "/persistent/"+edition);
+    postMessage({type:"loading",message:"正在读取本机存档……"});
     await new Promise((resolve,reject)=>py.FS.syncfs(true,error=>error?reject(error):resolve()));
     await py.runPythonAsync("import sys; sys.path.insert(0, '/app'); from mobile import runtime");
     const result = await py.runPythonAsync(`runtime.configure(${JSON.stringify(edition)})`);

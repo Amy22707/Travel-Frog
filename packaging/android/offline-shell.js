@@ -5,6 +5,73 @@
     GameConfig.isH5 = true;
     GameConfig.fullScreen = true;
     core.DebugConfig.ShowLog = false;
+    var createCalendar = CalendarView.prototype.childrenCreated;
+    CalendarView.prototype.childrenCreated = function () {
+        createCalendar.call(this);
+        this.imagePic.touchEnabled = false;
+        this.imageToday.touchEnabled = false;
+        this.groupReward.touchEnabled = false;
+        this.groupReward.touchChildren = false;
+    };
+    var loadCalendar = CalendarModel.prototype.calendar_load;
+    CalendarModel.prototype.calendar_load = function (data) {
+        this.data.lucky_days = {};
+        this.data.st_days = {};
+        loadCalendar.call(this, data);
+    };
+    CalendarModel.prototype.canGetStReward = function () {
+        var today = new Date(core.Time.getServerTime() * 1000).getDate();
+        var tasks = this.data.task_list;
+        var rewards = this.data.st_days;
+        return tasks.length > 0 && tasks.every(function (task) { return task && task.complete; }) &&
+            Object.keys(rewards).some(function (day) { return day > 0 && day <= today && rewards[day] > 0; });
+    };
+    CalendarModel.prototype.req_st_reward = function (day, onClaim) {
+        var model = this;
+        core.SocketManage.getInstance().send("calendar_get_st_reward", new core.Action2(function (result) {
+            if (result.code !== 0) return;
+            delete model.data.st_days[result.day];
+            if (result.task) model.calendar_task_update({task: result.task});
+            model.checkRedot();
+            core.PageManage.getInstance().addViewControl(GiftPackageViewController, core.ViewLayerType.NoticeLayer,
+                null, [{item_id: result.item_id, count: 1}]);
+            if (onClaim) onClaim();
+        }), day);
+    };
+    function calendarBadge(viewType, buttonName) {
+        var complete = viewType.prototype.onComplete;
+        viewType.prototype.onComplete = function () {
+            complete.call(this);
+            var button = this[buttonName];
+            var dot = new eui.Image("red_dot_png");
+            var manager = Tabikaeru.RedotManager.instance();
+            var key = Tabikaeru.RedotType.REDOT_CALENDAR;
+            var handler = manager.getRedotHandler(key);
+            function update() { dot.visible = manager.getRedotValue(key) > 0; }
+            function position() { dot.x = button.width - dot.width; }
+            dot.width = dot.height = 23;
+            dot.touchEnabled = false;
+            dot.addEventListener(egret.Event.ADDED_TO_STAGE, function () {
+                handler.add(update, dot);
+                position();
+                update();
+            }, dot);
+            dot.addEventListener(egret.Event.REMOVED_FROM_STAGE, function () { handler.remove(update, dot); }, dot);
+            button.addEventListener(egret.Event.RESIZE, position, dot);
+            button.addChild(dot);
+        };
+    }
+    calendarBadge(MainOutView, "btnCalendar");
+    calendarBadge(Lumberroom, "calendarBtn");
+    LotteryModel.prototype.getLeftTime = function () {
+        if (!this.data.phase || !this.data.select_list.length) return 0;
+        var now = core.Time.getServerTime();
+        var china = new Date((now + 8 * 3600) * 1000);
+        var day = china.getUTCDay();
+        if (day !== 6 && day !== 0) return 0;
+        china.setUTCHours(0, 0, 0, 0);
+        return china.getTime() / 1000 - 8 * 3600 + (day === 6 ? 2 : 1) * 86400 - now;
+    };
     var loadBundle = EjoyAssetBundleAnalyzer.prototype.onLoadStart;
     EjoyAssetBundleAnalyzer.prototype.onLoadStart = function (host, resource) {
         return loadBundle.call(this, host, resource).catch(function (error) {
@@ -41,6 +108,7 @@
     window.addEventListener("unhandledrejection", function (event) {
         console.error("OFFLINE_PROMISE " + event.reason);
     });
+    var wheelAnimations = new WeakMap();
     document.addEventListener("wheel", function (event) {
         var stage = egret.MainContext.instance.stage;
         var canvas = document.querySelector("canvas");
@@ -54,10 +122,23 @@
             if (target instanceof eui.Scroller && target.viewport) {
                 var view = target.viewport;
                 var limit = Math.max(0, view.contentHeight - view.height);
-                var next = Math.max(0, Math.min(limit, view.scrollV + delta * stage.stageHeight / bounds.height));
-                if (next !== view.scrollV) {
+                var pending = wheelAnimations.get(view);
+                var base = pending ? pending.destination : view.scrollV;
+                var step = Math.sign(delta) * Math.min(Math.abs(delta), 120);
+                var next = Math.max(0, Math.min(limit, base + step * stage.stageHeight / bounds.height));
+                if (next !== base || pending) {
+                    if (pending) cancelAnimationFrame(pending.id);
                     if (target.stopAnimation) target.stopAnimation();
-                    view.scrollV = next;
+                    var from = view.scrollV, start = performance.now();
+                    var animation = {destination: next, id: 0};
+                    function scrollFrame(now) {
+                        var fraction = Math.min(1, (now - start) / 145);
+                        view.scrollV = from + (next - from) * (1 - Math.pow(1 - fraction, 3));
+                        if (fraction < 1 && view.stage) animation.id = requestAnimationFrame(scrollFrame);
+                        else wheelAnimations.delete(view);
+                    }
+                    animation.id = requestAnimationFrame(scrollFrame);
+                    wheelAnimations.set(view, animation);
                     event.preventDefault();
                     return;
                 }
@@ -79,4 +160,12 @@
         document.body.appendChild(manage);
     }
     egret.runEgret({renderMode: "webgl", audioType: 0});
+    var splash = document.getElementById("frog-loading");
+    if (splash) {
+        var loadingTimer = setInterval(function () {
+            if (GameConfig.loadComplete) { clearInterval(loadingTimer); splash.remove(); }
+        }, 100);
+        // Let the game's own error dialog remain accessible if loading fails.
+        setTimeout(function () { clearInterval(loadingTimer); splash.remove(); }, 30000);
+    }
 }());

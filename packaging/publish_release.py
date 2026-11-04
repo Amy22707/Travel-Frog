@@ -29,7 +29,8 @@ def main():
         with urllib.request.urlopen(urllib.request.Request(url,data=data,headers=headers,method=method),timeout=600) as response:
             if response.status==204:return None
             return json.load(response)
-    files=[ROOT/"release/TravelFrogNormal-Windows.zip",ROOT/"release/TravelFrogGallery-Windows.zip",
+    files=[ROOT/"release/TravelFrogSetup.exe",
+           ROOT/"release/TravelFrogNormal-Windows.zip",ROOT/"release/TravelFrogGallery-Windows.zip",
            ROOT/"release/Android/FrogNormal.apk",ROOT/"release/Android/FrogGallery.apk",
            ROOT/"release/TravelFrogWeb.zip"]
     if args.asset:
@@ -48,8 +49,8 @@ def main():
         release=request(api+"/releases","POST",{"tag_name":args.tag,"target_commitish":"main","name":title,
             "body":"Windows 普通版与图鉴版独立程序、手机独立安卓包及网页离线安装。存档请自行导入；各设备通过 .frogsave 手动迁移进度。", "draft":True})
     assets={a["name"]:a for a in release["assets"]}
-    if args.replace_draft_assets and not release["draft"]:
-        raise RuntimeError("Only draft release assets may be replaced.")
+    if not release["draft"]:
+        raise RuntimeError("Use a new tag for the draft release.")
     upload=release["upload_url"].split("{")[0]
     for file in files:
         if file.name in assets:
