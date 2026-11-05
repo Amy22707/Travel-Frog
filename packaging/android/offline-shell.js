@@ -222,20 +222,23 @@
                 var view = target.viewport;
                 var limit = Math.max(0, view.contentHeight - view.height);
                 var pending = wheelAnimations.get(view);
-                var base = pending ? pending.destination : view.scrollV;
+                var base = Math.max(0, Math.min(limit, pending ? pending.destination : view.scrollV));
                 var step = Math.sign(delta) * Math.min(Math.abs(delta), 120);
                 var next = Math.max(0, Math.min(limit, Math.round(base + step * stage.stageHeight / bounds.height)));
+                event.preventDefault();
                 if (next !== base || pending) {
                     if (pending) cancelAnimationFrame(pending.id);
                     else {
                         if (target.stopAnimation) target.stopAnimation();
                         Utils.FpsManager.instance().boost();
                     }
-                    var from = view.scrollV, start = performance.now();
+                    var from = Math.max(0, Math.min(limit, view.scrollV)), start = performance.now();
                     var animation = {destination: next, id: 0};
                     function scrollFrame(now) {
-                        var fraction = Math.min(1, (now - start) / 145);
-                        view.scrollV = Math.round(from + (next - from) * (1 - Math.pow(1 - fraction, 3)));
+                        var fraction = Math.max(0, Math.min(1, (now - start) / 145));
+                        var currentLimit = Math.max(0, view.contentHeight - view.height);
+                        var position = Math.round(from + (next - from) * (1 - Math.pow(1 - fraction, 3)));
+                        view.scrollV = Math.max(0, Math.min(currentLimit, position));
                         if (fraction < 1 && view.stage) animation.id = requestAnimationFrame(scrollFrame);
                         else {
                             wheelAnimations.delete(view);
@@ -244,9 +247,10 @@
                     }
                     animation.id = requestAnimationFrame(scrollFrame);
                     wheelAnimations.set(view, animation);
-                    event.preventDefault();
-                    return;
+                } else {
+                    view.scrollV = base;
                 }
+                return;
             }
             target = target.parent;
         }
