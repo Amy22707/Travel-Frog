@@ -28,8 +28,10 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         try {
-            boolean gallery = getPackageName().endsWith("gallery");
-            int port = gallery ? 53181 : 53180;
+            String packageName = getPackageName();
+            boolean gallery = packageName.endsWith(".gallery");
+            int port = packageName.startsWith("org.travelfrog.china.") ? 53182 : 53180;
+            if (gallery) port++;
             server = new AssetServer(getAssets(), port);
             server.start();
             web = new WebView(this);

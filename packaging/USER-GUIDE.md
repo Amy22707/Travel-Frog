@@ -32,7 +32,7 @@ iPhone / iPad：用 Safari 打开网页版本，从分享菜单选择“添加�
 
 Windows 升级时保留 `user-data/`，更新程序和资源文件。安卓升级请覆盖安装；卸载应用会删除本地进度。清理浏览器网站数据也会删除网页存档，请先导出备份。
 
-电脑版保存照片会下载 PNG 文件。安卓版会打开系统的文件保存界面，允许自行选择位置，不需要 root。
+网页和 Windows 版保存照片时会下载 PNG 文件，位置由浏览器的下载设置决定。明信片分享页也可以单独保存带信封的图片。安卓版会打开系统的文件保存界面，允许自行选择位置。
 
 官网下载与完整教程：https://amy22707.github.io/studio/travel-frog/ 。其中“从官服保存自己的进度”介绍支持客户端的日志开启、采集、解析、导入与恢复原脚本的过程。
 
@@ -54,3 +54,9 @@ python packaging\build_phone_apks.py
 旧的 `build_apks.py` 用于准备原游戏资源和电脑连接型 APK。独立手机版由 `build_phone_apks.py` 构建。需要本机 Java、Apktool 与签名工具；安卓编译依赖和 Pyodide 下载到 `.build/`。
 
 新构建产物位于 `release/TravelFrogNormal/`、`release/TravelFrogGallery/`、`release/Android/` 和 `release/TravelFrogMobile/`。手机网页目录可以部署到 HTTPS 静态站点的子目录，不需要网站服务端运行 Python。
+
+安卓发布包使用独立应用标识，可以与先前的测试包并存。进度通过同版本的 `.frogsave` 迁移。构建时指定长期保存的签名密钥库和别名，通过环境变量 `FROG_ANDROID_KEYSTORE_PASSWORD` 提供密码。APK 输出到 `release/AndroidRelease/`，后续覆盖升级继续使用同一密钥库。
+
+```bat
+python packaging\build_phone_apks.py --release-keystore signing\android\release.p12 --key-alias travelfrog
+```

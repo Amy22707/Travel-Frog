@@ -200,7 +200,7 @@ def make_gallery_state(source_state: dict) -> dict:
         for _ in range(max(0, 6 - count)):
             game._album_append_picture_no_save(state, game.make_picture_info(state, picture_id))
 
-    game.get_animpicture_state(state)["page_num"] = 999
+    game.get_animpicture_state(state).update(page_num=999, guide=game.ANIMPICTURE_GUIDE_COMPLETE)
     role["misc"]["picture_cnt"] = len(album)
     complete_gallery_handbook(state)
     game.normalize_gallery_resources(state)

@@ -38,31 +38,25 @@
             if (onClaim) onClaim();
         }), day);
     };
-    function calendarBadge(viewType, buttonName) {
-        var complete = viewType.prototype.onComplete;
-        viewType.prototype.onComplete = function () {
-            complete.call(this);
-            var button = this[buttonName];
-            var dot = new eui.Image("red_dot_png");
-            var manager = Tabikaeru.RedotManager.instance();
-            var key = Tabikaeru.RedotType.REDOT_CALENDAR;
-            var handler = manager.getRedotHandler(key);
-            function update() { dot.visible = manager.getRedotValue(key) > 0; }
-            function position() { dot.x = button.width - dot.width; }
-            dot.width = dot.height = 23;
-            dot.touchEnabled = false;
-            dot.addEventListener(egret.Event.ADDED_TO_STAGE, function () {
-                handler.add(update, dot);
-                position();
-                update();
-            }, dot);
-            dot.addEventListener(egret.Event.REMOVED_FROM_STAGE, function () { handler.remove(update, dot); }, dot);
-            button.addEventListener(egret.Event.RESIZE, position, dot);
-            button.addChild(dot);
-        };
-    }
-    calendarBadge(MainOutView, "btnCalendar");
-    calendarBadge(Lumberroom, "calendarBtn");
+    // The courtyard skin already binds REDOT_CALENDAR to its own badge.
+    var completeLumberroom = Lumberroom.prototype.onComplete;
+    Lumberroom.prototype.onComplete = function () {
+        completeLumberroom.call(this);
+        var dot = new eui.Image("red_dot_little_png");
+        var manager = Tabikaeru.RedotManager.instance();
+        var key = Tabikaeru.RedotType.REDOT_CALENDAR;
+        var handler = manager.getRedotHandler(key);
+        function update() { dot.visible = manager.getRedotValue(key) > 0; }
+        dot.x = dot.y = 10;
+        dot.width = dot.height = 23;
+        dot.touchEnabled = false;
+        dot.addEventListener(egret.Event.ADDED_TO_STAGE, function () {
+            handler.add(update, dot);
+            update();
+        }, dot);
+        dot.addEventListener(egret.Event.REMOVED_FROM_STAGE, function () { handler.remove(update, dot); }, dot);
+        this.calendarBtn.addChild(dot);
+    };
     LotteryModel.prototype.getLeftTime = function () {
         if (!this.data.phase || !this.data.select_list.length) return 0;
         var now = core.Time.getServerTime();
@@ -102,6 +96,105 @@
             window.FrogNative.saveImage(url.substring(url.indexOf(",") + 1), "frog-" + Date.now() + ".png");
         });
     };
+    function photoShareButton(text, width, onTap) {
+        var button = new eui.Group();
+        var background = new eui.Rect(width, 52, 0xfffbe9);
+        background.strokeColor = 0x526b42;
+        background.strokeWeight = 2;
+        background.ellipseWidth = background.ellipseHeight = 16;
+        var label = new eui.Label(text);
+        label.textColor = 0x414b37;
+        label.size = 25;
+        label.horizontalCenter = label.verticalCenter = 0;
+        button.width = width;
+        button.height = 52;
+        button.touchChildren = false;
+        button.addChild(background);
+        button.addChild(label);
+        button.addEventListener(egret.TouchEvent.TOUCH_TAP, onTap, button);
+        return button;
+    }
+    PhotoShareView.prototype.capture = function () {
+        this.visible = true;
+        var view = this;
+        var close = photoShareButton("×", 52, function () { view.close(); });
+        close.name = "offlinePhotoShareClose";
+        close.right = close.top = 16;
+        this.addChild(close);
+        var status = new eui.Label("分享失败");
+        status.textColor = 0x414b37;
+        status.strokeColor = 0xfffbe9;
+        status.stroke = 4;
+        status.size = 24;
+        status.horizontalCenter = 0;
+        status.top = 30;
+        status.touchEnabled = false;
+        this.addChild(status);
+        var save = photoShareButton("保存图片", 156, async function () {
+            var texture;
+            save.touchEnabled = false;
+            try {
+                texture = Utils.Capture.instance().captureTexture(view.c_view);
+                var saved = await BaseChannel.getInstance().save_texture_to_album(texture);
+                status.text = saved ? "保存成功" : "保存失败";
+            } catch (error) {
+                status.text = "保存失败";
+            } finally {
+                if (texture) texture.dispose();
+                save.touchEnabled = true;
+            }
+        });
+        save.name = "offlinePhotoShareSave";
+        save.left = save.top = 16;
+        this.addChild(save);
+    };
+    function openOfflinePhotoShare(selector) {
+        var parent = selector.parent;
+        if (!parent || !selector.sharePic) return;
+        var picture = selector.sharePic;
+        var preview = new PhotoShareView(picture);
+        core.SocketManage.getInstance().send("cooking_share");
+        if (picture.id) core.ModelManage.getInstance().getModel(ShareModel).req_get_reward(picture.id, 0);
+        selector.close();
+        if (selector.share_callback_custom) selector.share_callback_custom(false);
+        parent.addChild(preview);
+    }
+    var openSharePhoto = ShareView.prototype.open_pic;
+    ShareView.prototype.open_pic = function () {
+        openSharePhoto.apply(this, arguments);
+        egret.callLater(openOfflinePhotoShare, null, this);
+    };
+    var executeShare = ShareView.prototype.share;
+    ShareView.prototype.share = function (platform) {
+        if (this.sharePic) openOfflinePhotoShare(this);
+        else executeShare.call(this, platform);
+    };
+    var selectEncyTravelItem = EncyTravelView.prototype.onSelectItem;
+    EncyTravelView.prototype.onSelectItem = function () {
+        var row = this.itemList[this.list.selectedIndex];
+        if (row && Tabikaeru.DataManager.instance().ItemDB.get(row.item_id)) {
+            selectEncyTravelItem.call(this);
+        } else {
+            this.lbName.text = this.lbSubName.text = this.imagePic.source = "";
+            this.listSub.dataProvider = new eui.ArrayCollection();
+            this.listDesc.dataProvider = new eui.ArrayCollection();
+        }
+    };
+    var createPartyCake = PartyCakeView.prototype.childrenCreated;
+    PartyCakeView.prototype.childrenCreated = function () {
+        createPartyCake.call(this);
+        var panel = this.groupTask;
+        var parent = panel.parent;
+        var clip = new eui.Group();
+        clip.percentWidth = 100;
+        clip.maxWidth = 854; // back_makecake.png width
+        clip.horizontalCenter = 0;
+        clip.top = clip.bottom = 0;
+        clip.touchThrough = true;
+        clip.scrollEnabled = true;
+        parent.addChildAt(clip, parent.getChildIndex(panel));
+        clip.addChild(panel);
+    };
     window.addEventListener("error", function (event) {
         console.error("OFFLINE_ERROR " + event.message + " " + event.filename + ":" + event.lineno);
     });
@@ -110,6 +203,7 @@
     });
     var wheelAnimations = new WeakMap();
     document.addEventListener("wheel", function (event) {
+        if (event.ctrlKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
         var stage = egret.MainContext.instance.stage;
         var canvas = document.querySelector("canvas");
         if (!stage || !canvas) return;
@@ -119,23 +213,29 @@
         var target = stage.$hitTest(x, y);
         var delta = event.deltaY * (event.deltaMode === 1 ? 30 : event.deltaMode === 2 ? 400 : 1);
         while (target) {
-            if (target instanceof eui.Scroller && target.viewport) {
+            if (target instanceof eui.Scroller && target.viewport && target.scrollPolicyV !== eui.ScrollPolicy.OFF) {
                 var view = target.viewport;
                 var limit = Math.max(0, view.contentHeight - view.height);
                 var pending = wheelAnimations.get(view);
                 var base = pending ? pending.destination : view.scrollV;
                 var step = Math.sign(delta) * Math.min(Math.abs(delta), 120);
-                var next = Math.max(0, Math.min(limit, base + step * stage.stageHeight / bounds.height));
+                var next = Math.max(0, Math.min(limit, Math.round(base + step * stage.stageHeight / bounds.height)));
                 if (next !== base || pending) {
                     if (pending) cancelAnimationFrame(pending.id);
-                    if (target.stopAnimation) target.stopAnimation();
+                    else {
+                        if (target.stopAnimation) target.stopAnimation();
+                        Utils.FpsManager.instance().boost();
+                    }
                     var from = view.scrollV, start = performance.now();
                     var animation = {destination: next, id: 0};
                     function scrollFrame(now) {
                         var fraction = Math.min(1, (now - start) / 145);
-                        view.scrollV = from + (next - from) * (1 - Math.pow(1 - fraction, 3));
+                        view.scrollV = Math.round(from + (next - from) * (1 - Math.pow(1 - fraction, 3)));
                         if (fraction < 1 && view.stage) animation.id = requestAnimationFrame(scrollFrame);
-                        else wheelAnimations.delete(view);
+                        else {
+                            wheelAnimations.delete(view);
+                            Utils.FpsManager.instance().resume();
+                        }
                     }
                     animation.id = requestAnimationFrame(scrollFrame);
                     wheelAnimations.set(view, animation);

@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--tag",default="v0.2.2")
     parser.add_argument("--publish",action="store_true",help="Publish after upload; otherwise keep the release as a draft.")
     parser.add_argument("--asset",action="append",help="Upload only these build filenames; may be repeated.")
+    parser.add_argument("--signed-android", action="store_true", help="Use APKs built with a release keystore.")
     parser.add_argument("--replace-draft-assets",action="store_true",help="Replace selected assets in a draft release.")
     args=parser.parse_args()
     credential=subprocess.run(["git","credential","fill"],input="protocol=https\nhost=github.com\n\n",
@@ -29,9 +30,10 @@ def main():
         with urllib.request.urlopen(urllib.request.Request(url,data=data,headers=headers,method=method),timeout=600) as response:
             if response.status==204:return None
             return json.load(response)
+    android = ROOT / "release" / ("AndroidRelease" if args.signed_android else "Android")
     files=[ROOT/"release/TravelFrogSetup.exe",
            ROOT/"release/TravelFrogNormal-Windows.zip",ROOT/"release/TravelFrogGallery-Windows.zip",
-           ROOT/"release/Android/FrogNormal.apk",ROOT/"release/Android/FrogGallery.apk",
+           android/"FrogNormal.apk",android/"FrogGallery.apk",
            ROOT/"release/TravelFrogWeb.zip"]
     if args.asset:
         unknown=set(args.asset)-{file.name for file in files}

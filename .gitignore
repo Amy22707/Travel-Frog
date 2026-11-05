@@ -100,5 +100,6 @@
 **/.env.*
 *.key
 *.pem
+*.p12
 *.jks
 *.keystore

@@ -33,8 +33,36 @@ class PortableSaveTests(unittest.TestCase):
         self.assertGreater(len(gallery_tumbler["tumbler_list"]), 0)
         self.assertTrue(all(row["layers"] for row in gallery_tumbler["tumbler_list"]))
         self.assertEqual(game.get_story_state(normal)["stories"], [])
+        self.assertEqual(game.get_animpicture_state(gallery)["guide"], game.ANIMPICTURE_GUIDE_COMPLETE)
         self.assertNotIn("travelDiary", game.get_role_parts(normal)[0]["settings"]["client"])
         self.assertEqual(json.loads(game.get_role_parts(gallery)[0]["settings"]["client"])["guideStep"], "Complete")
+
+    def test_encyclopedia_unlock_selects_a_display_entry(self):
+        state = copy.deepcopy(self.seed)
+        game.unlock_travel_encyclopedia_items(state, [0])
+        travel = game.find_push(state, "encytravel.load")["data"]
+        self.assertEqual(travel["show_sub"], [{"id": 1001, "sub_id": 10010001}])
+        self.assertFalse(game.refresh_plant_encyclopedia(state))
+        house = game.get_item_parts(state)[1]
+        game.set_house_count(house, 1201, 1)
+        self.assertTrue(game.refresh_plant_encyclopedia(state))
+        plants = game.find_push(state, "encyclopedia.load")["data"]
+        self.assertIn({"id": 401, "sub_id": 4010101}, plants["show_sub"])
+        self.assertFalse(game.refresh_plant_encyclopedia(state))
+
+    def test_dudu_starter_kits_are_purchased_once(self):
+        state = copy.deepcopy(self.seed)
+        shop = game.find_push(state, "furniture.load_furniture")["data"]["shop"]
+        shop["shop_list"] = [{"shop_id": key, "item_id": 5000 + key, "num": 1} for key in (1, 2)]
+        house = game.get_item_parts(state)[1]
+        self.assertEqual(game._dudu_starter_offers(state, house), [1, 2])
+        with patch.object(game, "save_state"):
+            for shop_id, kit in game.DUDU_STARTER_KITS.items():
+                self.assertTrue(game.apply_furniture_shop_buy(state, shop_id)[0])
+                self.assertTrue(all(game.get_house_count(house, item_id) == 1 for item_id in kit))
+                self.assertFalse(game.apply_furniture_shop_buy(state, shop_id)[0])
+        self.assertEqual(game.get_role_parts(state)[2]["clover_point"], 498)
+        self.assertEqual(game._dudu_starter_offers(state, house), [])
 
     def test_default_title_is_owned_before_any_trip_and_restored_for_old_saves(self):
         state = copy.deepcopy(self.seed)

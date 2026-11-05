@@ -2083,14 +2083,7 @@ def unlock_travel_encyclopedia_items(state: dict, item_ids: list[int]) -> list[i
     if not isinstance(data, dict):
         data = {"unlock_list": [], "unlock_desc": [], "show_sub": []}
         push["data"] = data
-    unlock_list = data.setdefault("unlock_list", [])
-    unlock_desc = data.setdefault("unlock_desc", [])
-    if not isinstance(unlock_list, list):
-        unlock_list = _to_list(unlock_list)
-        data["unlock_list"] = unlock_list
-    if not isinstance(unlock_desc, list):
-        unlock_desc = _to_list(unlock_desc)
-        data["unlock_desc"] = unlock_desc
+    unlock_list, unlock_desc = _encyclopedia_lists(data)
 
     known = {int(value) for value in unlock_list if str(value).lstrip("-").isdigit()}
     unlocked: list[int] = []
@@ -2114,7 +2107,72 @@ def unlock_travel_encyclopedia_items(state: dict, item_ids: list[int]) -> list[i
         desc_list = desc.setdefault("list", [])
         if isinstance(desc_list, list) and sub_id > 0 and sub_id not in desc_list:
             desc_list.append(sub_id)
+    _fill_encyclopedia_selections(data, entries)
     return unlocked
+
+
+def _encyclopedia_lists(data: dict) -> tuple[list, list]:
+    for key in ("unlock_list", "unlock_desc", "show_sub"):
+        if not isinstance(data.get(key), list):
+            data[key] = _to_list(data.get(key))
+    return data["unlock_list"], data["unlock_desc"]
+
+
+def _fill_encyclopedia_selections(data: dict, entries: dict) -> bool:
+    unlocked, _ = _encyclopedia_lists(data)
+    selected = {row["id"] for row in data["show_sub"] if isinstance(row, dict) and "id" in row}
+    changed = False
+    for long_id in unlocked:
+        row = entries.get(str(long_id))
+        if row and row["id"] not in selected:
+            data["show_sub"].append({"id": row["id"], "sub_id": row["long_id"]})
+            selected.add(row["id"])
+            changed = True
+    return changed
+
+
+def refresh_plant_encyclopedia(state: dict) -> bool:
+    _, house, _, _ = get_item_parts(state)
+    icons = set()
+    for row in house:
+        if not isinstance(row, dict) or int(row.get("count", 0)) <= 0:
+            continue
+        item_id = int(row["item_id"])
+        item = item_cfg(item_id)
+        if item:
+            icons.add(item_id)
+            icons.add(item.get("img", {}).get("index"))
+    if not icons:
+        return False
+    config = load_static_json("encyclopedia_json.json")
+    entries = config["list"]
+    variants = {(row["id"], row["sub_id"]) for row in entries.values()
+                if row["pic_id"] == 1 and row["icon"] in icons}
+    if not variants:
+        return False
+    push = find_push(state, "encyclopedia.load")
+    if not push:
+        push = {"cmd": "encyclopedia.load", "data": {}}
+        state.setdefault("sync_pushes", []).append(push)
+    data = push["data"]
+    unlocked, descriptions = _encyclopedia_lists(data)
+    known = set(unlocked)
+    parents = {row["id"] for row in descriptions if isinstance(row, dict) and "id" in row}
+    changed = False
+    for row in entries.values():
+        parent_id = row["id"]
+        if (parent_id, row["sub_id"]) not in variants:
+            continue
+        if row["long_id"] not in known:
+            unlocked.append(row["long_id"])
+            known.add(row["long_id"])
+            changed = True
+        if parent_id not in parents:
+            description = config["desc"].get(str(parent_id), {})
+            descriptions.append({"id": parent_id, "list": [int(key) for key in description]})
+            parents.add(parent_id)
+            changed = True
+    return _fill_encyclopedia_selections(data, entries) or changed
 
 
 def achievement_rows() -> list[dict]:
@@ -7948,6 +8006,18 @@ def _dudu_one_time_tool_row(row: dict) -> bool:
     return bool(item and int(item.get("type", -1) or -1) == 12 and int(item.get("own_num", 0) or 0) == 1)
 
 
+# GiftData 5001 and 5002 are the two one-clover starter purchases.
+DUDU_STARTER_KITS = {1: tuple(range(10201, 10206)), 2: (*range(10001, 10008), 10101)}
+
+
+def _dudu_starter_offers(state: dict, house: list) -> list[int]:
+    claimed = state.get("offline_meta", {}).get("dudu_starter_kits", [])
+    missing_tools = any(not get_house_count(house, item_id) for item_id in DUDU_STARTER_KITS[1])
+    if not missing_tools and 1 not in claimed:
+        return []
+    return [shop_id for shop_id in DUDU_STARTER_KITS if shop_id not in claimed]
+
+
 def _grant_dudu_furniture_gift(state: dict, item_id: int) -> str | None:
     target = DUDU_FURNITURE_GIFT_TARGETS.get(int(item_id))
     if target is None:
@@ -7971,6 +8041,7 @@ def refresh_dudu_garden_shop(state: dict, now: int | None=None, policy: dict | N
     shop=furn.setdefault("shop",{}); start=int(shop.get("start_time",0) or 0); leave=int(shop.get("leave_time",0) or 0)
     slot_limit=max(1,int(gp.get("dudu_total_slots",10) or 10))
     db=_cfg_dict("furnitureShopData_json.json"); _,house,_,_=get_item_parts(state)
+    starter_ids = _dudu_starter_offers(state, house)
     spring_offer = seasonal_activity_window("spring_card", now)[1] > 0 and bool(spring_card_policy(policy).get("enabled", True))
     existing=shop.get("shop_list") if isinstance(shop.get("shop_list"),list) else []
     def no_longer_sell(entry):
@@ -8028,6 +8099,11 @@ def refresh_dudu_garden_shop(state: dict, now: int | None=None, policy: dict | N
     flowerpot_item_id=201009
     flowerpot_shop_id=20
     active_window=start==arrive and leave==departure
+    if active_window:
+        listed = {int(row["shop_id"]) for row in filtered if isinstance(row, dict)}
+        starter_rows = [{"shop_id": sid, "item_id": int(db[str(sid)]["item_id"]), "num": 1}
+                        for sid in starter_ids if sid not in listed]
+        filtered = starter_rows + filtered
     if active_window and _dudu_gift_is_owned(state,flowerpot_item_id,furn):
         record=next((row for row in sold_out if isinstance(row,dict) and int(row.get("shop_id",0) or 0)==flowerpot_shop_id and int(row.get("start_time",0) or 0)==start),None)
         if record is None:
@@ -8084,8 +8160,10 @@ def refresh_dudu_garden_shop(state: dict, now: int | None=None, policy: dict | N
               pick(fert_rows,int(gp.get("dudu_fertilizer_slots",2) or 2),"fert"))
     if spring_offer:
         selected = [row for row in selected if int(row.get("item_id", 0) or 0) != 10102]
-    if len(selected)>slot_limit-int(spring_offer):
-        selected=pick(selected,slot_limit - int(spring_offer),"total")
+    regular_slots = max(0, slot_limit - int(spring_offer) - len(starter_ids))
+    if len(selected) > regular_slots:
+        selected = pick(selected, regular_slots, "total")
+    selected = [db[str(sid)] for sid in starter_ids[:slot_limit-int(spring_offer)]] + selected
     if spring_offer:
         selected.append(db["28"])
     shop["shop_list"]=[{"shop_id":int(r["id"]),"item_id":int(r["item_id"]),"num":1} for r in selected]
@@ -8100,6 +8178,19 @@ def apply_furniture_shop_buy(state: dict, shop_id: int) -> tuple[bool,str,int|No
     if not entry or int(entry.get("num",0) or 0)<=0: return False,"not_in_current_shop",None,None,None,False
     price=int(row.get("price",0) or 0); iid=int(row.get("item_id",0) or 0); res,_=get_clover_parts(state); total=int(res.get("clover_point",0) or 0)
     _,house,_,_=get_item_parts(state); owned=get_house_count(house,iid)
+    if shop_id in DUDU_STARTER_KITS:
+        if shop_id not in _dudu_starter_offers(state, house):
+            return False, "starter_already_owned", total, iid, None, False
+        if total < price:
+            return False, "not_enough_clover", total, iid, None, False
+        for item_id in DUDU_STARTER_KITS[shop_id]:
+            count = get_house_count(house, item_id)
+            set_house_count(house, item_id, max(count, 1) if shop_id == 1 else count + 1)
+        res["clover_point"] = total - price
+        entry["num"] = 0
+        state.setdefault("offline_meta", {}).setdefault("dudu_starter_kits", []).append(shop_id)
+        save_state(state, f"furniture.buy_starter:{shop_id}")
+        return True, "starter_kit", res["clover_point"], iid, None, False
     if _dudu_one_time_tool_row(row) and owned>0:
         entry["num"]=0
         save_state(state,f"furniture.duplicate_one_time_tool_refund:{shop_id}:{iid}")
@@ -8524,9 +8615,18 @@ def _animpicture_template_for_pic(pic_id: int) -> int | None:
         return None
 
 
+ANIMPICTURE_GUIDE_COMPLETE = 6
+
+
 def unlock_animpicture_guide(state: dict) -> bool:
     """Start the local introduction once a compatible photo is in the album."""
     data = get_animpicture_state(state)
+    if GALLERY_MODE:
+        if data["guide"] >= ANIMPICTURE_GUIDE_COMPLETE:
+            return False
+        data["guide"] = ANIMPICTURE_GUIDE_COMPLETE
+        save_state(state, "animpicture.gallery_ready")
+        return True
     if data["guide"] != 0:
         return False
     if not any(_animpicture_template_for_pic(int(row.get("pic_id", -1))) is not None for row in get_album_index(state)):
@@ -10840,6 +10940,12 @@ async def serve_client(ws, state: dict) -> None:
                     sync_home_easter_egg(state, policy=policy)
                     reconcile_album_transfer_state(state)
                     unlock_animpicture_guide(state)
+                    travel_ency = find_push(state, "encytravel.load")
+                    travel_ency_changed = travel_ency and _fill_encyclopedia_selections(
+                        travel_ency["data"], load_static_json("encytravel_json.json")["list"]
+                    )
+                    if refresh_plant_encyclopedia(state) or travel_ency_changed:
+                        save_state(state, "encyclopedia.sync")
                     children_day_claimed = claim_children_day_login_reward(state)
                     refresh_achievements(state)
                     advance_weekend_lottery(state, int(time.time()), policy)
@@ -10904,6 +11010,9 @@ async def serve_client(ws, state: dict) -> None:
                         await send_json(ws, calendar_task_push(result["calendar_task"]))
                     if "item_id" in result:
                         await send_json(ws, {"cmd": "item.update", "data": {"item": {"item_id": result["item_id"], "count": result["item_count"]}}})
+                        if refresh_plant_encyclopedia(state):
+                            save_state(state, "encyclopedia.clover_harvest")
+                            await send_json(ws, find_push(state, "encyclopedia.load"))
                     if "decoration_id" in result:
                         # Exact production pattern observed for element=3.
                         await send_json(ws, {"cmd": "client.load_decorate", "data": copy.deepcopy(get_decoration_parts(state))})
@@ -11407,6 +11516,9 @@ async def serve_client(ws, state: dict) -> None:
                         _,house,_,_=get_item_parts(state)
                         for r in rewards:
                             await send_json(ws,{"cmd":"item.update","data":{"item":{"item_id":int(r["item_id"]),"count":get_house_count(house,int(r["item_id"]))}}})
+                        if refresh_plant_encyclopedia(state):
+                            save_state(state, "encyclopedia.flowerpot_harvest")
+                            await send_json(ws, find_push(state, "encyclopedia.load"))
                         await send_json(ws,{"cmd":"client.load_decorate","data":copy.deepcopy(get_decoration_parts(state))})
                     await send_response(ws,session,{"code":0 if ok else 1,"offline_reason":reason,"item_list":rewards if ok else []})
                 except Exception:
@@ -11425,6 +11537,14 @@ async def serve_client(ws, state: dict) -> None:
                     sid=int(data.get("shop_id",0)) if isinstance(data,dict) else int(data or 0); ok,reason,clover,iid,count,refunded=apply_furniture_shop_buy(state,sid)
                     is_special_gift=bool(iid in DUDU_FURNITURE_GIFT_TARGETS) if iid is not None else False
                     if ok:
+                        if reason == "starter_kit":
+                            await send_response(ws, session, {"code": 0, "offline_reason": reason})
+                            await send_json(ws, {"cmd": "clover.update", "data": {"clover": clover}})
+                            _, house, _, _ = get_item_parts(state)
+                            for item_id in DUDU_STARTER_KITS[sid]:
+                                await send_json(ws, {"cmd": "item.update", "data": {"item": {
+                                    "item_id": item_id, "count": get_house_count(house, item_id)}}})
+                            continue
                         if is_special_gift:
                             await send_response(ws,session,{"code":0,"offline_reason":reason})
                             await send_json(ws,{"cmd":"clover.update","data":{"clover":clover}})

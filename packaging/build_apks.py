@@ -44,15 +44,29 @@ def release_client(filename):
         ('void t.getModel(CalendarModel).req_beginer_reward()', 'void t.getModel(CalendarModel).req_beginer_reward(p)'),
         ('o>=s&&n[r]?(a=n[r].item_id', 'o>=s&&n[r]&&(o>s||u.getModel(CalendarModel).canGetBeginnerReward())?(a=n[r].item_id'),
         ('a&&u.getModel(CalendarModel).canGetStReward()&&(h=!0)', 'a&&o<=s&&u.getModel(CalendarModel).canGetStReward()&&(h=!0)'),
+        ('title:_("不倒翁"),onTap:this.onTumblerTap',
+         'title:_("不倒翁({0}/{1})",r.length,Tabikaeru.DataManager.instance().TumblerData.all().length),onTap:this.onTumblerTap'),
+        ('Utils.disableButtonOneTime(e.saveBtn);var i=function(n){t.saveNewPictureInfo',
+         'Utils.disableButtonOneTime(e.saveBtn);if(!window.FrogNative&&e.picture.texture)BaseChannel.getInstance().save_texture_to_album(e.picture.texture);var i=function(n){t.saveNewPictureInfo'),
     ):
         if code.count(old) != 1:
-            raise ValueError(f"Unexpected calendar code in {filename}: {old}")
+            raise ValueError(f"Unexpected client code in {filename}: {old}")
         code = code.replace(old, new)
     return code.replace('return t.timeout=2e3,t', 'return t.timeout=15e3,t')
 
 
 def write_bootstrap(game, desktop=False):
     write_startup_assets(game)
+    theme = game / "js/default.thm.js"
+    skins = theme.read_text(encoding="utf-8")
+    start = skins.index("['resource/China/skins/Shop/Shop.exml']")
+    end = skins.index("['resource/China/skins/Shop/ShopAdsSkin.exml']", start)
+    shop = skins[start:end]
+    shop = shop.replace('[-107,"hostComponent.safe_top"],[1],this.shopScroller', '[-82,"hostComponent.safe_top"],[1],this.shopScroller')
+    shop = shop.replace('t.height = 582;\n\t\tt.left = 0;\n\t\tt.name = "shopScroller";', 't.height = 592;\n\t\tt.left = 0;\n\t\tt.name = "shopScroller";')
+    if '[-82,"hostComponent.safe_top"],[1],this.shopScroller' not in shop or "t.height = 592;" not in shop:
+        raise ValueError("Unexpected shop layout in default.thm.js")
+    theme.write_text(skins[:start] + shop + skins[end:], encoding="utf-8")
     manifest = json.loads((game / "manifest.json").read_text(encoding="utf-8"))
     scripts = manifest["initial"] + ["js/default.thm.js"]
     if not desktop:
@@ -82,9 +96,9 @@ var bridge=document.createElement("script");bridge.src="../socket.js";bridge.onl
 #frog-loading .frog{width:min(45vw,220px);aspect-ratio:280/118;background:url(startup/loading_dorai.png) center 66.7%/274.3% auto no-repeat}
 .desktop-game{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:transparent transparent}.desktop-game:hover{scrollbar-color:#526b4266 transparent}.desktop-game .egret-player{min-width:56.338vh}
 #desktop-rotate{display:none}
-@media (orientation:landscape){.desktop-game .egret-player,.desktop-game #frog-loading{visibility:hidden}.desktop-game #desktop-rotate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;text-align:center;background:#fff;color:#414b37;font:16px sans-serif}}
+@media (orientation:landscape){.desktop-game .egret-player,.desktop-game #frog-loading{visibility:hidden}.desktop-game #desktop-rotate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;text-align:center;background:#fff;color:#414b37;font:600 clamp(24px,4vw,34px)/1.5 sans-serif}}
 #frog-loading .bar{width:min(58vw,300px);height:clamp(14px,2.5vh,26px);background:url(startup/loading_off.png) center/100% 100%;overflow:hidden}
-#frog-loading .bar::before{content:"";display:block;width:100%;height:100%;background:url(startup/loading_on.png) center/100% 100%;animation:read 1.7s ease-in-out infinite alternate;transform-origin:left}
+#frog-loading .bar::before{content:"";display:block;width:100%;height:100%;background:url(startup/loading_on.png) center/100% 100%;animation:read 1.7s ease-out both;transform-origin:left}
 @keyframes read{from{transform:scaleX(.16)}to{transform:scaleX(.94)}}
 </style>
 </head><body><div id="frog-loading" role="status" aria-label="正在读取中"><img src="startup/new_title.png" alt="旅行青蛙·中国之旅"><img class="reading" src="startup/loading.png" alt=""><div class="bar"></div><div class="frog"></div></div><div id="desktop-rotate">请将窗口调整为竖屏比例。</div><div class="egret-player" data-entry-class="Main" data-orientation="portrait"

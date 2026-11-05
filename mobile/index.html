@@ -10,7 +10,7 @@ h1 span{font-size:clamp(20px,6.4vw,30px);display:block}#home.booting h1 span,#ho
 #home.booting :is(#create,#import,#export,#cache,#previous){display:none}
 #loadingArt{margin:20px auto 30px}#loadingArt img{display:block;margin:0 auto;width:min(38vw,150px)}#loadingArt .frog{width:min(45vw,220px);aspect-ratio:280/118;margin:24px auto 0;background:url(game/startup/loading_dorai.png) center 66.7%/274.3% auto no-repeat}
 #loadingArt .bar{width:min(100%,270px);height:22px;margin:18px auto 0;background:url(game/startup/loading_off.png) center/100% 100%}
-#loadingArt .bar::before{content:"";display:block;height:100%;background:url(game/startup/loading_on.png) center/100% 100%;transform-origin:left;animation:read 1.7s ease-in-out infinite alternate}
+#loadingArt .bar::before{content:"";display:block;height:100%;background:url(game/startup/loading_on.png) center/100% 100%;transform-origin:left;animation:read 1.7s ease-out both}
 @keyframes read{from{transform:scaleX(.16)}to{transform:scaleX(.94)}}
 button{border:0;border-radius:16px;padding:15px 22px;background:#526b42;color:white;font:inherit;cursor:pointer;margin:7px 0;width:100%}
 button.secondary{background:#e9e4cf;color:#526b42}button:disabled{opacity:.45}
@@ -22,7 +22,7 @@ body.playing #gameViewport{display:block}
 #gameViewport::-webkit-scrollbar-thumb:hover,#gameViewport::-webkit-scrollbar-thumb:active{background:#526b4288}
 #game{display:block;width:100%;min-width:56.338vh;height:100%;border:0;background:#f6f1de}#manage{display:none;position:fixed;z-index:2;bottom:calc(8px + env(safe-area-inset-bottom));left:8px;width:auto;padding:6px 12px;font-size:12px;background:#f6f1ded9;color:#526b42;border:1px solid #a7ad90}
 #progress{font-size:14px}#progress:empty{display:none}input{display:none}
-#rotate{display:none;position:fixed;inset:0;place-items:center;text-align:center;padding:24px;background:#f6f1de}
+#rotate{display:none;position:fixed;inset:0;place-items:center;text-align:center;padding:24px;background:#f6f1de;font-size:clamp(24px,4vw,34px);line-height:1.5;font-weight:600}
 @media (orientation:landscape){body.playing #gameViewport,body.playing #manage{visibility:hidden}body.playing #rotate{display:grid}}
 </style></head><body>
 <main id="home" class="booting"><h1><img src="game/startup/new_title.png" alt="旅行青蛙·中国之旅"><span>旅行青蛙·中国之旅</span></h1><p id="editionName" hidden>图鉴版</p>

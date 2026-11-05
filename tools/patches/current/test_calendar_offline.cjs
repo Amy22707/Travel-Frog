@@ -3,10 +3,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../../..');
-const source = fs.readFileSync(path.join(root, 'client/js/main.offline.stage6i2.js'), 'utf8');
-const previous = fs.readFileSync(path.join(root, 'client/js/main.offline.stage6i2.js.before_perpetual_calendar'), 'utf8');
-assert.equal(source.split('\n/* OFFLINE_PERPETUAL_CALENDAR_BEGIN */')[0], previous.trimEnd());
-let patch = fs.readFileSync(path.join(root, 'client/js/calendar.offline.js'), 'utf8');
+let patch = fs.readFileSync(path.join(root, 'client/js/calendar.offline.js'), 'utf8').replace(/\r\n/g, '\n');
+for (const name of ['main.offline.stage6i2.js', 'main.gallery.js']) {
+    const source = fs.readFileSync(path.join(root, 'client/js', name), 'utf8').replace(/\r\n/g, '\n');
+    assert.equal(source.split('/* OFFLINE_PERPETUAL_CALENDAR_BEGIN */').length, 2, name);
+    assert.ok(source.includes(patch.trim()), name);
+}
 patch = patch.replace('var original = CalendarView.prototype.childrenCreated;',
     'globalThis.calendarLayout = monthLayout; globalThis.calendarPaint = paint; var original = CalendarView.prototype.childrenCreated;');
 const lunar = require(path.join(root, 'client/js/vendor/lunar.js'));
