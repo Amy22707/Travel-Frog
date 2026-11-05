@@ -210,8 +210,15 @@ class PortableSaveTests(unittest.TestCase):
             self.assertEqual(story_heart["pro"], 1)
             self.assertEqual(gift_task["pro"], 0)
             self.assertEqual(game.apply_guide_task_reward(state, 9)[1], "not_complete")
-            game.get_event_list(state).append({"id": 42, "evt_type": 16})
-            self.assertTrue(game.apply_confirm_event(state, 42))
+            self.assertEqual(game.unlocked_travel_friend_ids(state), [])
+            specialty = int(game.static_rows("Specialty_json.json")[0]["itemId"])
+            game._giftbox_add_specialty(game.get_giftbox_state(state), specialty, 1)
+            state["offline_meta"]["giftbox_friend"] = {"next_check": 100}
+            with patch.object(game, "deterministic_roll", return_value=0):
+                event = game.advance_giftbox_friend(state, now=100)
+            self.assertIsNotNone(event)
+            self.assertEqual(len(game.unlocked_travel_friend_ids(state)), 1)
+            self.assertTrue(game.apply_confirm_event(state, event["id"]))
             self.assertTrue(game.refresh_guide_task_progress(state))
             self.assertEqual(gift_task["pro"], 1)
             self.assertTrue(game.apply_guide_task_reward(state, 9)[0])

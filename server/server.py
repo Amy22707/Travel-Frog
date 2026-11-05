@@ -1469,6 +1469,8 @@ def refresh_guide_task_progress(state: dict) -> bool:
     history = meta.get("travel_history", [])
     _, house, _, desk = get_item_parts(state)
     inventory = {int(row["item_id"]): int(row.get("count", 0)) for row in house}
+    item_config = {int(row["id"]): row for row in _item_rows()}
+    item_types = {item_id: row.get("type") for item_id, row in item_config.items()}
     collections, specialties = get_handbook_parts(state)
     notes = get_travel_note_state(state)["note_list"]
     note_config = load_static_json("Note_json.json")
@@ -1479,18 +1481,20 @@ def refresh_guide_task_progress(state: dict) -> bool:
     craft = get_handcraft_data(state)
     furniture = _furniture_production_data(state)
     furniture_config = _cfg_dict("furnitureData_json.json")
-    blueprints = sum(count > 0 and item_type(item_id) == 13 for item_id, count in inventory.items())
-    furniture_events = sum(int(row.get("evt_type", -1)) == 21 for row in get_event_list(state))
+    blueprints = sum(count > 0 and item_types.get(item_id) == 13 for item_id, count in inventory.items())
+    event_history = meta.get("travel_event_history", [])
+    furniture_events = sum(int(row.get("evt_type", -1)) == 21 for row in [*get_event_list(state), *event_history])
+    drawing = (find_push(state, "guest.load_drawing") or {}).get("data", {})
     guide = meta.get("guide_task", {})
     season_rewards = int(guide.get("season_rewards", 0))
     received_friend_gift = (
         bool(guide.get("received_friend_gift")) or bool(get_visit_state(state).get("acquire"))
-        or any(int(event.get("evt_type", -1)) == 16 for event in meta.get("travel_event_history", []))
+        or any(int(event.get("evt_type", -1)) == 16 for event in event_history)
     )
     resources = get_role_parts(state)[2]
     progress = {
         1: len(history), 2: len(history),
-        3: len(specialties), 4: sum(count for item_id, count in inventory.items() if item_type(item_id) == ITEM_SPECIALTY),
+        3: len(specialties), 4: sum(count for item_id, count in inventory.items() if item_types.get(item_id) == ITEM_SPECIALTY),
         5: len(collections), 6: len(collections), 7: pictures, 8: pictures, 9: int(received_friend_gift),
         101: observations, 102: observations, 103: friend_notes,
         104: len(get_story_state(state)["stories"]),
@@ -1500,8 +1504,8 @@ def refresh_guide_task_progress(state: dict) -> bool:
         204: len(craft["stamps"]), 205: len(craft["stamps"]),
         301: furniture_events, 302: blueprints,
         303: int(meta.get("furniture", {}).get("manual_replace_count", 0)),
-        401: max(int(get_drawing_parts(state)[0].get("state", 0) > DRAW_WAIT), len(meta.get("party_history", []))),
-        402: len(get_drawing_parts(state)[0].get("colls", [])),
+        401: max(int(drawing.get("state", 0) > DRAW_WAIT), len(meta.get("party_history", []))),
+        402: len(drawing.get("colls", [])),
         403: len(meta.get("party_history", [])),
         901: int(resources.get("clover_point", 0)),
         902: int(resources.get("ticket", 0)),
@@ -1514,14 +1518,14 @@ def refresh_guide_task_progress(state: dict) -> bool:
             themes.setdefault(int(row["style"]), set()).add(int(row["id"]))
     progress[304] = int(any(ids <= owned_furniture for ids in themes.values()))
     foods = {int(row.get("food_id", -1)) for row in history}
-    food_names = {str(item_cfg(food_id).get("name", "")) for food_id in foods if item_cfg(food_id)}
+    food_names = {item_config[food_id]["name"] for food_id in foods if food_id in item_config}
     fed = meta.get("guest_serve_history", [])
     plan_progress = {
         101: int(0 in foods), 102: len(history), 201: len(fed),
         202: int(guide.get("harvest_count", 0)),
         203: int(meta.get("vase", {}).get("decoration_id", 0) > 0),
         205: int(1 in foods),
-        301: sum(count > 0 and item_type(item_id) == ITEM_TOOL for item_id, count in inventory.items()),
+        301: sum(count > 0 and item_types.get(item_id) == ITEM_TOOL for item_id, count in inventory.items()),
         302: int("沙拉皮塔饼" in food_names), 303: int("茄汁蛋包饭" in food_names),
         304: int(any(len(row.get("bag_snapshot", [])) >= 4 and
                      all(int(item) >= 0 for item in row["bag_snapshot"][:4]) for row in history)),
@@ -1535,7 +1539,7 @@ def refresh_guide_task_progress(state: dict) -> bool:
         410: int("桂花蒸米糕" in food_names), 411: int("彩椒烙蛋饼" in food_names),
         412: int("水果沙拉" in food_names),
         501: int(any(int(row.get("amulet_id", -1)) in MUSEUM_DAY_TICKET_BY_ID.values() for row in history)),
-        601: sum(item_type(int(item_id)) == 11 for row in history for item_id in row.get("item_ids", [])),
+        601: sum(item_types.get(int(item_id)) == 11 for row in history for item_id in row.get("item_ids", [])),
     }
     for guest_id in (0, 1, 2):
         plan_progress[404 + guest_id] = int(any(int(row.get("guest_id", -1)) == guest_id for row in fed))
@@ -9782,6 +9786,11 @@ def _grant_travel_friend_notes(state: dict, friend_id: int, now: int) -> list[in
     visits = meta.setdefault("visit_counts", {})
     visit_count = int(visits.get(str(friend_id), 0) or 0) + 1
     visits[str(friend_id)] = visit_count
+    intro = next((int(row["visitOpen"]) for row in load_static_json("TravelFriends_json.json").values()
+                  if int(row["id"]) == friend_id), None)
+    if intro is not None and intro not in owned:
+        notes.append({"id": intro, "read": False, "timestamp": now})
+        return [intro]
     granted: list[int] = []
 
     reply_candidates = []
@@ -9855,9 +9864,8 @@ def advance_giftbox_friend(state: dict, now: int | None = None, policy: dict | N
         return None
     friends = unlocked_travel_friend_ids(state)
     if not friends:
-        logging.info("GIFTBOX FRIEND blocked: no TravelFriends visitOpen note unlocked")
-        meta["next_check"] = now + delay
-        return None
+        # The first offline gift exchange introduces a friend and their opening note.
+        friends = [int(row["id"]) for row in load_static_json("TravelFriends_json.json").values()]
     offer = _consume_one_giftbox_offer(state, policy)
     if offer is None:
         return None
