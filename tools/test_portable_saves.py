@@ -14,6 +14,31 @@ from tools.build_gallery_state import make_gallery_state
 
 
 class PortableSaveTests(unittest.TestCase):
+    def test_calendar_month_schedule_and_missed_rewards(self):
+        from datetime import datetime, timezone
+        state = new_state()
+        stamp = int(datetime(2026, 2, 28, 12, tzinfo=timezone.utc).timestamp())
+        calendar = game.get_calendar_state(state, stamp)
+        self.assertEqual([row["day"] for row in calendar["st_days"]], [4, 18])
+        self.assertIn(len(calendar["lucky_days"]), (2, 3))
+        self.assertFalse({row["day"] for row in calendar["lucky_days"]} & {4, 18})
+        saved = copy.deepcopy(calendar)
+        counter = state["offline_meta"]["rng_counter"]
+        self.assertEqual(game.get_calendar_state(state, stamp), saved)
+        self.assertEqual(state["offline_meta"]["rng_counter"], counter)
+        day = calendar["lucky_days"][0]["day"]
+        with patch.object(game, "save_state"):
+            self.assertTrue(game.apply_calendar_lucky_reward(state, stamp, reward_day=day)[0])
+            self.assertFalse(game.apply_calendar_lucky_reward(state, stamp, reward_day=day)[0])
+            for task in calendar["task_list"]:
+                task["complete"] = True
+            self.assertTrue(game.apply_calendar_st_reward(state, stamp, reward_day=4)[0])
+            self.assertFalse(game.apply_calendar_st_reward(state, stamp, reward_day=4)[0])
+        march = int(datetime(2026, 3, 1, tzinfo=timezone.utc).timestamp())
+        game.get_calendar_state(state, march)
+        self.assertEqual(state["offline_meta"]["calendar_month"], "2026-03")
+        self.assertTrue(all(not task["complete"] for task in calendar["task_list"]))
+
     @classmethod
     def setUpClass(cls):
         cls.seed = new_state("测试青蛙")

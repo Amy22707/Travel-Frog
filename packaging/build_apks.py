@@ -45,7 +45,12 @@ def release_client(filename):
         ('o>=s&&n[r]?(a=n[r].item_id', 'o>=s&&n[r]&&(o>s||u.getModel(CalendarModel).canGetBeginnerReward())?(a=n[r].item_id'),
         ('a&&u.getModel(CalendarModel).canGetStReward()&&(h=!0)', 'a&&o<=s&&u.getModel(CalendarModel).canGetStReward()&&(h=!0)'),
         ('title:_("不倒翁"),onTap:this.onTumblerTap',
-         'title:_("不倒翁({0}/{1})",r.length,Tabikaeru.DataManager.instance().TumblerData.all().length),onTap:this.onTumblerTap'),
+         'title:_("不倒翁({0}/{1})",r.length,Tabikaeru.DataManager.instance().TumblerData.count()),onTap:this.onTumblerTap'),
+        ('calendar_get_luck_reward:[[],!0]', 'calendar_get_luck_reward:[["day"],!0]'),
+        ('s==o&&t.getModel(CalendarModel).canGetLuckyReward()?void',
+         'o<=s&&t.data.lucky_days[o]&&t.getModel(CalendarModel).canGetLuckyReward()?void'),
+        ('s==o&&u.getModel(CalendarModel).canGetLuckyReward()&&(h=!0)',
+         'o<=s&&u.getModel(CalendarModel).canGetLuckyReward()&&(h=!0)'),
         ('Utils.disableButtonOneTime(e.saveBtn);var i=function(n){t.saveNewPictureInfo',
          'Utils.disableButtonOneTime(e.saveBtn);if(!window.FrogNative&&e.picture.texture)BaseChannel.getInstance().save_texture_to_album(e.picture.texture);var i=function(n){t.saveNewPictureInfo'),
     ):

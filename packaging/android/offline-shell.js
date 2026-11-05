@@ -17,6 +17,30 @@
         this.imageToday.touchEnabled = false;
         this.groupReward.touchEnabled = false;
         this.groupReward.touchChildren = false;
+        var view = this, model = this.getModel(CalendarModel);
+        var today = new Date(core.Time.getServerTime() * 1000).getDate();
+        var age = this.getModel(RoleModel).getCreateDay();
+        var beginner = Tabikaeru.DataManager.instance().calendarData.get("beginner");
+        this.imageList.forEach(function (cell, index) {
+            var day = index + 1, slot = age + day - today;
+            if (day >= today || slot < 1 || slot > 7 || model.data.new_flag[slot - 1]) return;
+            var point = cell.localToGlobal(0, 0);
+            point = view.groupReward.globalToLocal(point.x, point.y);
+            var item = Tabikaeru.DataManager.instance().ItemDB.get(beginner[slot].item_id);
+            var icon = new eui.Image(Tabikaeru.path.formatPathImage(item.img));
+            icon.x = point.x + 6;
+            icon.y = point.y + 2;
+            icon.width = icon.height = 60;
+            view.groupReward.addChild(icon);
+            cell.addEventListener(egret.TouchEvent.TOUCH_TAP, function (event) {
+                if (model.data.new_flag[slot - 1]) return;
+                event.stopImmediatePropagation();
+                model.req_code_reward(beginner[slot].code, function () {
+                    icon.visible = false;
+                    model.checkRedot();
+                });
+            }, view, false, 100);
+        });
     };
     var loadCalendar = CalendarModel.prototype.calendar_load;
     CalendarModel.prototype.calendar_load = function (data) {
@@ -30,6 +54,44 @@
         var rewards = this.data.st_days;
         return tasks.length > 0 && tasks.every(function (task) { return task && task.complete; }) &&
             Object.keys(rewards).some(function (day) { return day > 0 && day <= today && rewards[day] > 0; });
+    };
+    CalendarModel.prototype.canGetLuckyReward = function () {
+        var today = new Date(core.Time.getServerTime() * 1000).getDate();
+        var rewards = this.data.lucky_days;
+        return Object.keys(rewards).some(function (day) { return day > 0 && day <= today && rewards[day] > 0; });
+    };
+    CalendarModel.prototype.canGetMissedBeginnerReward = function () {
+        var today = new Date(core.Time.getServerTime() * 1000).getDate();
+        var age = this.getModel(RoleModel).getCreateDay();
+        return this.data.new_flag.some(function (flag, index) {
+            var day = today - age + index + 1;
+            return !flag && day >= 1 && day <= today;
+        });
+    };
+    CalendarModel.prototype.canShowMainOutBtn = function () {
+        return this.canGetMissedBeginnerReward() || this.canGetStReward() || this.canGetLuckyReward();
+    };
+    var checkCalendarRedot = CalendarModel.prototype.checkRedot;
+    CalendarModel.prototype.checkRedot = function () {
+        checkCalendarRedot.call(this);
+        if (this.canGetMissedBeginnerReward()) {
+            Tabikaeru.RedotManager.instance().setRedotValue(Tabikaeru.RedotType.REDOT_CALENDAR, 1);
+        }
+        var scene = core.PageManage.getInstance().getControl(MainOutController, core.ViewLayerType.SceneLayer);
+        if (scene && scene.view && scene.view.btnCalendar) {
+            scene.view.btnCalendar.visible = scene.view.btnCalendar.includeInLayout = this.canShowMainOutBtn();
+        }
+    };
+    CalendarModel.prototype.req_luck_reward = function (day, onClaim) {
+        var model = this;
+        core.SocketManage.getInstance().send("calendar_get_luck_reward", new core.Action2(function (result) {
+            if (result.code !== 0) return;
+            delete model.data.lucky_days[result.day];
+            model.checkRedot();
+            core.PageManage.getInstance().addViewControl(GiftPackageViewController, core.ViewLayerType.NoticeLayer,
+                null, [{item_id: result.item_id, count: 1}]);
+            if (onClaim) onClaim();
+        }), day);
     };
     CalendarModel.prototype.req_st_reward = function (day, onClaim) {
         var model = this;

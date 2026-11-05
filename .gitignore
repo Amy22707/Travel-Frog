@@ -16,6 +16,7 @@
 !/server/config/
 /server/config/*
 !/server/config/lunar_festivals.json
+!/server/config/solar_terms.json
 
 !/client/
 /client/*

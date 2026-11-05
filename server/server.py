@@ -11,7 +11,7 @@ import re
 import sys
 import time
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -10277,7 +10277,7 @@ def apply_travel_read_note(state: dict, ids: Any) -> int:
     return changed
 
 
-def get_calendar_state(state: dict) -> dict:
+def get_calendar_state(state: dict, now: int | None = None) -> dict:
     push = find_push(state, "calendar.load")
     if not push:
         push = {"cmd": "calendar.load", "data": {"new_flag": [], "lucky_days": [], "st_days": [], "task_list": []}}
@@ -10291,7 +10291,44 @@ def get_calendar_state(state: dict) -> dict:
             data[key] = _to_list(data.get(key))
     flags = data["new_flag"]
     flags.extend([0] * (7 - len(flags)))
+    refresh_calendar_month(state, data, now)
     return data
+
+
+def refresh_calendar_month(state: dict, data: dict, now: int | None = None) -> bool:
+    china = timezone(timedelta(hours=8))
+    date = datetime.fromtimestamp(int(time.time()) if now is None else now, china)
+    month = date.strftime("%Y-%m")
+    meta = state.setdefault("offline_meta", {})
+    if meta.get("calendar_month") == month:
+        return False
+    previous = meta.get("calendar_month")
+    if previous or data.get("lucky_days") or data.get("st_days"):
+        meta["calendar_previous"] = {"month": previous, "lucky_days": copy.deepcopy(data["lucky_days"]),
+                                     "st_days": copy.deepcopy(data["st_days"])}
+    dates = sorted(value for value in load_static_json("solar_terms.json").get(str(date.year), {}).values()
+                   if value.startswith(f"{date.month:02d}-"))
+    data["st_days"] = [{"day": int(value[-2:]), "item_id": (34 + date.month if index == 0 else 19 + date.month)}
+                       for index, value in enumerate(dates)]
+    blocked = {row["day"] for row in data["st_days"]}
+    created = int(get_role_parts(state)[3].get("create_time") or 0)
+    for offset in range(7):
+        beginner = datetime.fromtimestamp(created + offset * 86400, china)
+        if beginner.strftime("%Y-%m") == month:
+            blocked.add(beginner.day)
+    days = (datetime(date.year + 1, 1, 1) if date.month == 12 else datetime(date.year, date.month + 1, 1)) - datetime(date.year, date.month, 1)
+    candidates = [day for day in range(1, days.days + 1) if day not in blocked]
+    count = 2 + deterministic_roll(state, f"calendar:{month}:gift_count", 2)
+    pool = [1000, 8000, 10108, 101, 102, *range(1201, 1216)]
+    lucky = []
+    for index in range(count):
+        day = candidates.pop(deterministic_roll(state, f"calendar:{month}:day:{index}", len(candidates)))
+        item_id = pool[deterministic_roll(state, f"calendar:{month}:item:{index}", len(pool))]
+        lucky.append({"day": day, "item_id": item_id})
+    data["lucky_days"] = sorted(lucky, key=lambda row: row["day"])
+    data["task_list"] = [{"id": task_id, "pro": 0, "complete": False} for task_id in (1, 2, 3)]
+    meta["calendar_month"] = month
+    return True
 
 
 def get_calendar_task(state: dict, task_id: int) -> dict | None:
@@ -10479,6 +10516,7 @@ def apply_offline_calendar_policy(state: dict, policy: dict | None = None) -> bo
     if policy is None:
         policy = load_offline_policy()
     cp = policy.get("calendar", {}) if isinstance(policy, dict) else {}
+    before = copy.deepcopy(find_push(state, "calendar.load"))
     cal = get_calendar_state(state)
     if not bool(cp.get("offline_complete_ad_share_task", True)):
         return False
@@ -10487,7 +10525,8 @@ def apply_offline_calendar_policy(state: dict, policy: dict | None = None) -> bo
     row = next((r for r in tasks if isinstance(r, dict) and int(r.get("id", -1)) == 1), None)
     if not row:
         return False
-    changed = not bool(row.get("complete", False)) or int(row.get("pro", 0) or 0) < 1
+    changed = (before != find_push(state, "calendar.load") or
+               not bool(row.get("complete", False)) or int(row.get("pro", 0) or 0) < 1)
     if changed:
         row["complete"] = True
         row["pro"] = max(1, int(row.get("pro", 0) or 0))
@@ -10505,11 +10544,11 @@ def _calendar_add_item(state: dict, item_id: int, count: int = 1) -> int:
 def apply_calendar_st_reward(state: dict, now: int | None = None, reward_day: int | None = None) -> tuple[bool, dict]:
     if now is None:
         now = int(time.time())
-    cal = get_calendar_state(state)
+    cal = get_calendar_state(state, now)
     tasks = [r for r in cal.get("task_list", []) if isinstance(r, dict)]
     if not tasks or any(not bool(r.get("complete", False)) for r in tasks):
         return False, {"code": 1, "offline_reason": "tasks_incomplete"}
-    day = datetime.fromtimestamp(now).day
+    day = datetime.fromtimestamp(now, timezone(timedelta(hours=8))).day
     candidates = [r for r in cal["st_days"] if isinstance(r, dict)
                   and int(r.get("item_id", 0) or 0) > 0
                   and 1 <= int(r.get("day", 0) or 0) <= day
@@ -10531,11 +10570,13 @@ def apply_calendar_st_reward(state: dict, now: int | None = None, reward_day: in
     return True, {"code": 0, "day": reward_day, "item_id": item_id, "item_count": count, "task": t1}
 
 
-def apply_calendar_lucky_reward(state: dict, now: int | None = None) -> tuple[bool, dict]:
+def apply_calendar_lucky_reward(state: dict, now: int | None = None, reward_day: int | None = None) -> tuple[bool, dict]:
     if now is None:
         now = int(time.time())
-    cal = get_calendar_state(state); day = datetime.fromtimestamp(now).day
-    row = next((r for r in cal.get("lucky_days", []) if isinstance(r, dict) and int(r.get("day", -1)) == day and int(r.get("item_id", 0) or 0) > 0), None)
+    cal = get_calendar_state(state, now)
+    today = datetime.fromtimestamp(now, timezone(timedelta(hours=8))).day
+    day = today if reward_day is None else reward_day
+    row = next((r for r in cal.get("lucky_days", []) if isinstance(r, dict) and 1 <= day <= today and int(r.get("day", -1)) == day and int(r.get("item_id", 0) or 0) > 0), None)
     if row is None:
         return False, {"code": 1, "offline_reason": "no_lucky_reward"}
     item_id = int(row["item_id"]); count = _calendar_add_item(state, item_id, 1)
@@ -11934,7 +11975,8 @@ async def serve_client(ws, state: dict) -> None:
 
             elif cmd == "calendar.get_luck_reward":
                 try:
-                    ok, out = apply_calendar_lucky_reward(state)
+                    day = request_argument(data, "day")
+                    ok, out = apply_calendar_lucky_reward(state, reward_day=int(day) if day is not None else None)
                     if ok:
                         await send_json(ws, {"cmd": "item.update", "data": {"item": {"item_id": out["item_id"], "count": out["item_count"]}}})
                     await send_response(ws, session, out)
