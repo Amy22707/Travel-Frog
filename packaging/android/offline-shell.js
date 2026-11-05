@@ -5,6 +5,11 @@
     GameConfig.isH5 = true;
     GameConfig.fullScreen = true;
     core.DebugConfig.ShowLog = false;
+    var shopItemIsLimited = ItemModel.prototype.isShopItemBuyLimit;
+    ItemModel.prototype.isShopItemBuyLimit = function (shopId) {
+        if (Number(shopId) === 65) return false;
+        return shopItemIsLimited.call(this, shopId);
+    };
     var createCalendar = CalendarView.prototype.childrenCreated;
     CalendarView.prototype.childrenCreated = function () {
         createCalendar.call(this);

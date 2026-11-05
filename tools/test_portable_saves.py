@@ -143,6 +143,41 @@ class PortableSaveTests(unittest.TestCase):
             self.assertEqual(game.get_animpicture_state(state)["guide"], 1)
             self.assertFalse(game.unlock_animpicture_guide(state))
 
+    def test_wishing_furniture_shop_bag_opens_and_refunds_completed_collection(self):
+        for gallery in (False, True):
+            with self.subTest(gallery=gallery), patch.object(game, "GALLERY_MODE", gallery), patch.object(game, "save_state"):
+                state = copy.deepcopy(self.seed)
+                resources = game.get_role_parts(state)[2]
+                resources["clover_point"] = 9999 if gallery else 6000
+                house = game.get_item_parts(state)[1]
+                with patch.object(game, "deterministic_roll", return_value=0):
+                    result = game.apply_shop_purchase(state, shop_id=65, item_id=204002, price=3000)
+                self.assertEqual(result[1], "wishing_furniture")
+                furniture = game._furniture_production_data(state)
+                self.assertIn(10104, furniture["has_fur"])
+                self.assertEqual(game.get_house_count(house, 204002), 99 if gallery else 0)
+                self.assertEqual(result[2], 9999 if gallery else 3000)
+                furniture["has_fur"].extend([10105, 10106])
+                result = game.apply_shop_purchase(state, shop_id=65, item_id=204002, price=3000)
+                self.assertEqual(result[1], "wishing_duplicate_refunded")
+                self.assertEqual(result[2], 9999 if gallery else 3000)
+
+    def test_stories_use_encounter_probability_and_stop_when_complete(self):
+        policy = game.load_offline_policy()
+        for roll in (24, 25, 99):
+            with self.subTest(roll=roll):
+                state = copy.deepcopy(self.seed)
+                with patch.object(game, "deterministic_roll", side_effect=[roll, 0]):
+                    story = game.maybe_generate_story_social(state, "test-trip", policy)
+                self.assertEqual(story is not None, roll < 25)
+        state = copy.deepcopy(self.seed)
+        game.get_story_state(state)["stories"] = [
+            {"id": row["storyid"]} for row in game.story_config_rows()
+        ]
+        with patch.object(game, "deterministic_roll") as roll:
+            self.assertIsNone(game.maybe_generate_story_social(state, "complete", policy))
+            roll.assert_not_called()
+
     def test_observations_share_one_drop_path_from_empty_save(self):
         state = copy.deepcopy(self.seed)
         notes = game.get_travel_note_state(state)["note_list"]

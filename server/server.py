@@ -1914,6 +1914,14 @@ def apply_shop_purchase(
     res["clover_point"] = new_clover
     set_house_count(house, item_id, new_item_count)
     set_purchased_count(purchased, shop_id, new_buy_count)
+    reason = "ok"
+    if item_id == 204002:
+        # The purchased bag opens immediately into the furniture collection.
+        set_house_count(house, item_id, old_item_count)
+        furniture_id = _grant_wishing_pool_reward(state, item_id, duplicate_refund=price)
+        new_item_count = get_house_count(house, item_id)
+        new_clover = int(res["clover_point"])
+        reason = "wishing_furniture" if furniture_id is not None else "wishing_duplicate_refunded"
     if item_id == ANIM_PICTURE_PAGE_ITEM_ID:
         # The frame is a permanent expansion, not a consumable album slot.
         anim = get_animpicture_state(state)
@@ -1937,7 +1945,7 @@ def apply_shop_purchase(
     state["format_version"] = max(int(state.get("format_version", 2) or 2), 5)
     save_state(state, f"item.buy:{shop_id}:{item_id}:{price}")
 
-    return True, "ok", new_clover, new_item_count, new_buy_count
+    return True, reason, new_clover, new_item_count, new_buy_count
 
 
 
@@ -6987,7 +6995,7 @@ def get_wishing_pool_state(state: dict, policy: dict | None = None) -> dict:
     return data
 
 
-def _grant_wishing_pool_reward(state: dict, item_id: int) -> None:
+def _grant_wishing_pool_reward(state: dict, item_id: int, *, duplicate_refund: int = 100) -> int | None:
     """Apply the actual collection grant behind a Wishing Pool result."""
     furniture = _furniture_production_data(state)
     owned = furniture["has_fur"]
@@ -6995,17 +7003,17 @@ def _grant_wishing_pool_reward(state: dict, item_id: int) -> None:
         furniture_id = WISHING_POOL_FURNITURE_TARGETS[item_id]
         if furniture_id not in owned:
             owned.append(furniture_id)
-        return
+        return furniture_id
     if item_id == 204002:
         candidates = [value for value in WISHING_POOL_GIFT_BAG_TARGETS if value not in owned]
         if not candidates:
             _, _, res, _ = get_role_parts(state)
-            res["clover_point"] = int(res.get("clover_point", 0) or 0) + 100
+            res["clover_point"] = 9999 if GALLERY_MODE else int(res.get("clover_point", 0) or 0) + duplicate_refund
             return
         furniture_id = candidates[deterministic_roll(state, "wishing_pool:gift_bag", len(candidates))]
         if furniture_id not in owned:
             owned.append(furniture_id)
-        return
+        return furniture_id
     _, house, _, _ = get_item_parts(state)
     set_house_count(house, item_id, get_house_count(house, item_id) + 1)
 
@@ -11132,7 +11140,10 @@ async def serve_client(ws, state: dict) -> None:
                             "is_free": False,
                         },
                     )
-                    if not GALLERY_MODE:
+                    if item_id == 204002:
+                        await send_json(ws, {"cmd": "furniture.load_furniture",
+                                             "data": copy.deepcopy(_furniture_production_data(state))})
+                    if not GALLERY_MODE and reason != "wishing_duplicate_refunded":
                         await record_capsule_spend_and_push(price, "shop_buy")
                     logging.info(
                         "SHOP BUY OK shop_id=%d item_id=%d price=%d "
