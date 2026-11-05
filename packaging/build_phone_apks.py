@@ -31,7 +31,7 @@ def sign_release(java, apk, keystore, alias, work):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--java",type=Path,default=Path(r"C:\Program Files\Java\jre1.8.0_503\bin\java.exe"))
+    parser.add_argument("--java",type=Path,default=Path(shutil.which("java") or "java"))
     parser.add_argument("--edition",choices=["normal","gallery","both"],default="both")
     parser.add_argument("--release-keystore", type=Path, help="Build signed candidates into release/AndroidRelease.")
     parser.add_argument("--key-alias", default="travelfrog")
