@@ -64,6 +64,31 @@ class PortableSaveTests(unittest.TestCase):
         self.assertEqual(game.get_role_parts(state)[2]["clover_point"], 498)
         self.assertEqual(game._dudu_starter_offers(state, house), [])
 
+    def test_photo_transfers_keep_layers_in_exactly_one_container(self):
+        picture = {"id": 880001, "pic_id": 100, "layers": [{"id": 1, "x": 17, "y": 23}]}
+        for gallery in (False, True):
+            with self.subTest(gallery=gallery), patch.object(game, "GALLERY_MODE", gallery), patch.object(game, "save_state"):
+                state = copy.deepcopy(self.seed)
+                game._album_append_picture_no_save(state, picture)
+                self.assertTrue(game.apply_album_to_gift(state, picture["id"])[0])
+                self.assertEqual(game.get_album_index(state), [])
+                self.assertEqual(game.get_giftbox_state(state)["pictures"], [picture])
+                self.assertEqual(game.get_album_recover_list(state), [])
+                self.assertTrue(game.apply_gift_to_album(state, picture["id"])[0])
+                self.assertEqual(game.album_picture_by_instance_id(state, picture["id"]), picture)
+                self.assertEqual(game.get_giftbox_state(state)["pictures"], [])
+                self.assertTrue(game.apply_album_to_gift(state, picture["id"])[0])
+                self.assertTrue(game.apply_gift_delete_picture(state, picture["id"]))
+                self.assertTrue(game.apply_gift_delete_picture(state, picture["id"]))
+                state = json.loads(json.dumps(state))
+                self.assertEqual(game.get_album_recover_list(state), [picture])
+                self.assertEqual(game.get_giftbox_state(state)["pictures"], [])
+                self.assertTrue(game.apply_album_recover(state, picture["id"])[0])
+                self.assertTrue(game.apply_album_recover(state, picture["id"])[0])
+                self.assertEqual(game.album_picture_by_instance_id(state, picture["id"]), picture)
+                self.assertEqual(len(game.get_album_index(state)), 1)
+                self.assertEqual(game.get_album_recover_list(state), [])
+
     def test_default_title_is_owned_before_any_trip_and_restored_for_old_saves(self):
         state = copy.deepcopy(self.seed)
         frog = game.get_role_parts(state)[1]

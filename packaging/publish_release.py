@@ -34,7 +34,7 @@ def main():
     files=[ROOT/"release/TravelFrogSetup.exe",
            ROOT/"release/TravelFrogNormal-Windows.zip",ROOT/"release/TravelFrogGallery-Windows.zip",
            android/"FrogNormal.apk",android/"FrogGallery.apk",
-           ROOT/"release/TravelFrogWeb.zip"]
+           ROOT/"release/TravelFrogWeb.zip", ROOT/"release/FrogStudioEntry.zip"]
     if args.asset:
         unknown=set(args.asset)-{file.name for file in files}
         if unknown:parser.error("Unknown build filenames: "+", ".join(sorted(unknown)))
