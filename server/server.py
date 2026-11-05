@@ -1524,6 +1524,7 @@ def refresh_guide_task_progress(state: dict) -> bool:
         101: int(0 in foods), 102: len(history), 201: len(fed),
         202: int(guide.get("harvest_count", 0)),
         203: int(meta.get("vase", {}).get("decoration_id", 0) > 0),
+        204: 1,  # Official-server redemption is completed locally in offline play.
         205: int(1 in foods),
         301: sum(count > 0 and item_types.get(item_id) == ITEM_TOOL for item_id, count in inventory.items()),
         302: int("沙拉皮塔饼" in food_names), 303: int("茄汁蛋包饭" in food_names),

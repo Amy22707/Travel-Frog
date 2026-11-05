@@ -208,6 +208,7 @@ class PortableSaveTests(unittest.TestCase):
             story_heart = next(row for row in plans if row["id"] == 401)
             gift_task = next(row for row in tasks if row["id"] == 9)
             self.assertEqual(story_heart["pro"], 1)
+            self.assertEqual(next(row for row in plans if row["id"] == 204)["pro"], 1)
             self.assertEqual(gift_task["pro"], 0)
             self.assertEqual(game.apply_guide_task_reward(state, 9)[1], "not_complete")
             self.assertEqual(game.unlocked_travel_friend_ids(state), [])
