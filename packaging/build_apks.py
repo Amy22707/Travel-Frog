@@ -41,8 +41,14 @@ def release_client(filename):
     code = code.replace(old, f'(window.FROG_SERVER_URL||{old})')
     for old, new in (
         ('calendar_get_st_reward:[[],!0]', 'calendar_get_st_reward:[["day"],!0]'),
-        ('void t.getModel(CalendarModel).req_beginer_reward()', 'void t.getModel(CalendarModel).req_beginer_reward(p)'),
-        ('o>=s&&n[r]?(a=n[r].item_id', 'o>=s&&n[r]&&(o>s||u.getModel(CalendarModel).canGetBeginnerReward())?(a=n[r].item_id'),
+        # Render missed beginner gifts in the same grid as every other reward.
+        ('o>s&&r++;var a=void 0,h=void 0;o>=s&&n[r]?(a=n[r].item_id,s==o&&u.getModel(CalendarModel).canGetBeginnerReward()&&(h=!0))',
+         'var beginnerSlot=r+o-s,beginner=n[beginnerSlot],a=void 0,h=void 0;'
+         'beginner&&!u.data.new_flag[beginnerSlot-1]?(a=beginner.item_id,h=o<=s)'),
+        ('return s==o&&t.getModel(CalendarModel).canGetBeginnerReward()?void t.getModel(CalendarModel).req_beginer_reward():',
+         'var model=t.getModel(CalendarModel);'
+         'return beginner&&!model.data.new_flag[beginnerSlot-1]?'
+         'void(o==s?model.req_beginer_reward(p):model.req_code_reward(beginner.code,function(){p&&p();model.checkRedot()})):'),
         ('a&&u.getModel(CalendarModel).canGetStReward()&&(h=!0)', 'a&&o<=s&&u.getModel(CalendarModel).canGetStReward()&&(h=!0)'),
         ('title:_("不倒翁"),onTap:this.onTumblerTap',
          'title:_("不倒翁({0}/{1})",r.length,Tabikaeru.DataManager.instance().TumblerData.count()),onTap:this.onTumblerTap'),

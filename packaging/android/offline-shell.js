@@ -17,30 +17,6 @@
         this.imageToday.touchEnabled = false;
         this.groupReward.touchEnabled = false;
         this.groupReward.touchChildren = false;
-        var view = this, model = this.getModel(CalendarModel);
-        var today = new Date(core.Time.getServerTime() * 1000).getDate();
-        var age = this.getModel(RoleModel).getCreateDay();
-        var beginner = Tabikaeru.DataManager.instance().calendarData.get("beginner");
-        this.imageList.forEach(function (cell, index) {
-            var day = index + 1, slot = age + day - today;
-            if (day >= today || slot < 1 || slot > 7 || model.data.new_flag[slot - 1]) return;
-            var point = cell.localToGlobal(0, 0);
-            point = view.groupReward.globalToLocal(point.x, point.y);
-            var item = Tabikaeru.DataManager.instance().ItemDB.get(beginner[slot].item_id);
-            var icon = new eui.Image(Tabikaeru.path.formatPathImage(item.img));
-            icon.x = point.x + 6;
-            icon.y = point.y + 2;
-            icon.width = icon.height = 60;
-            view.groupReward.addChild(icon);
-            cell.addEventListener(egret.TouchEvent.TOUCH_TAP, function (event) {
-                if (model.data.new_flag[slot - 1]) return;
-                event.stopImmediatePropagation();
-                model.req_code_reward(beginner[slot].code, function () {
-                    icon.visible = false;
-                    model.checkRedot();
-                });
-            }, view, false, 100);
-        });
     };
     var loadCalendar = CalendarModel.prototype.calendar_load;
     CalendarModel.prototype.calendar_load = function (data) {
