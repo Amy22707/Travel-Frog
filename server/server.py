@@ -1110,6 +1110,8 @@ def apply_normal_clover_harvest(
 
     meta = state.setdefault("offline_meta", {})
     receipts = meta.setdefault("clover_receipts", {})
+    guide = meta.setdefault("guide_task", {})
+    guide["harvest_count"] = int(guide.get("harvest_count", len(receipts))) + 1
     receipts[str(int(clover_id))] = {
         "server_time": int(now),
         "element": element,
@@ -1456,7 +1458,117 @@ def grant_guide_task_item(state: dict, item_id: int, count: int) -> dict:
     return {"kind": "item", "item_id": item_id, "total": get_house_count(house, item_id)}
 
 
+def refresh_guide_task_progress(state: dict) -> bool:
+    """Reconcile guide progress against persisted gameplay facts."""
+    if not find_push(state, "task.load") or not find_push(state, "task.load_list"):
+        return False
+    if GALLERY_MODE:
+        return complete_gallery_guide_tasks(state)
+    _, tasks, plans, _ = get_guide_task_parts(state)
+    meta = state.setdefault("offline_meta", {})
+    history = meta.get("travel_history", [])
+    _, house, _, desk = get_item_parts(state)
+    inventory = {int(row["item_id"]): int(row.get("count", 0)) for row in house}
+    collections, specialties = get_handbook_parts(state)
+    notes = get_travel_note_state(state)["note_list"]
+    note_config = load_static_json("Note_json.json")
+    observations = sum(note_config.get(str(row["id"]), {}).get("type") == 1 for row in notes)
+    friend_notes = len(notes) - observations
+    pictures = max(len(meta.get("album_full", {})),
+                   sum(len(row.get("picture_ids", [])) for row in history))
+    craft = get_handcraft_data(state)
+    furniture = _furniture_production_data(state)
+    furniture_config = _cfg_dict("furnitureData_json.json")
+    blueprints = sum(count > 0 and item_type(item_id) == 13 for item_id, count in inventory.items())
+    furniture_events = sum(int(row.get("evt_type", -1)) == 21 for row in get_event_list(state))
+    guide = meta.get("guide_task", {})
+    season_rewards = int(guide.get("season_rewards", 0))
+    received_friend_gift = (
+        bool(guide.get("received_friend_gift")) or bool(get_visit_state(state).get("acquire"))
+        or any(int(event.get("evt_type", -1)) == 16 for event in meta.get("travel_event_history", []))
+    )
+    resources = get_role_parts(state)[2]
+    progress = {
+        1: len(history), 2: len(history),
+        3: len(specialties), 4: sum(count for item_id, count in inventory.items() if item_type(item_id) == ITEM_SPECIALTY),
+        5: len(collections), 6: len(collections), 7: pictures, 8: pictures, 9: int(received_friend_gift),
+        101: observations, 102: observations, 103: friend_notes,
+        104: len(get_story_state(state)["stories"]),
+        105: sum(meta.get("giftbox_friend", {}).get("visit_counts", {}).values()),
+        201: inventory.get(HANDCRAFT_MATERIAL_ID, 0),
+        202: len(craft["wishs"]), 203: len(craft["wishs"]),
+        204: len(craft["stamps"]), 205: len(craft["stamps"]),
+        301: furniture_events, 302: blueprints,
+        303: int(meta.get("furniture", {}).get("manual_replace_count", 0)),
+        401: max(int(get_drawing_parts(state)[0].get("state", 0) > DRAW_WAIT), len(meta.get("party_history", []))),
+        402: len(get_drawing_parts(state)[0].get("colls", [])),
+        403: len(meta.get("party_history", [])),
+        901: int(resources.get("clover_point", 0)),
+        902: int(resources.get("ticket", 0)),
+        903: season_rewards, 904: inventory.get(9000, 0),
+    }
+    owned_furniture = set(furniture["has_fur"])
+    themes = {}
+    for row in furniture_config.values():
+        if 2 <= int(row.get("style", 0)) <= 14:
+            themes.setdefault(int(row["style"]), set()).add(int(row["id"]))
+    progress[304] = int(any(ids <= owned_furniture for ids in themes.values()))
+    foods = {int(row.get("food_id", -1)) for row in history}
+    food_names = {str(item_cfg(food_id).get("name", "")) for food_id in foods if item_cfg(food_id)}
+    fed = meta.get("guest_serve_history", [])
+    plan_progress = {
+        101: int(0 in foods), 102: len(history), 201: len(fed),
+        202: int(guide.get("harvest_count", 0)),
+        203: int(meta.get("vase", {}).get("decoration_id", 0) > 0),
+        205: int(1 in foods),
+        301: sum(count > 0 and item_type(item_id) == ITEM_TOOL for item_id, count in inventory.items()),
+        302: int("沙拉皮塔饼" in food_names), 303: int("茄汁蛋包饭" in food_names),
+        304: int(any(len(row.get("bag_snapshot", [])) >= 4 and
+                     all(int(item) >= 0 for item in row["bag_snapshot"][:4]) for row in history)),
+        305: int(bool(desk) and all(int(item) >= 0 for item in desk)),
+        # The story's remote-player heart action has no offline counterpart.
+        401: 1,
+        402: int(_giftbox_has_contents(state) or bool(meta.get("giftbox_friend", {}).get("last_offer"))),
+        403: inventory.get(7001, 0),
+        407: season_rewards,
+        408: int("香葱烤包子" in food_names), 409: int("海苔煎豆腐" in food_names),
+        410: int("桂花蒸米糕" in food_names), 411: int("彩椒烙蛋饼" in food_names),
+        412: int("水果沙拉" in food_names),
+        501: int(any(int(row.get("amulet_id", -1)) in MUSEUM_DAY_TICKET_BY_ID.values() for row in history)),
+        601: sum(item_type(int(item_id)) == 11 for row in history for item_id in row.get("item_ids", [])),
+    }
+    for guest_id in (0, 1, 2):
+        plan_progress[404 + guest_id] = int(any(int(row.get("guest_id", -1)) == guest_id for row in fed))
+    for stamp_type in range(3):
+        plan_progress[502 + stamp_type] = int(any(
+            int(row.get("id", 0)) // 100 == stamp_type and int(row.get("state", 0)) >= 3
+            for row in craft["stamps"]))
+    for craft_id in HANDCRAFT_PRAY_IDS:
+        plan_progress[504 + craft_id] = int(any(
+            int(row.get("id", 0)) == craft_id and int(row.get("state", 0)) >= 4
+            for row in craft["wishs"]))
+    for furniture_type in range(1, 28):
+        plan_progress[601 + furniture_type] = int(any(
+            int(row.get("type", -1)) == furniture_type and inventory.get(int(row.get("drawing", -1)), 0) > 0
+            for row in furniture_config.values()))
+    plan_progress[629] = inventory.get(10401, 0)
+    plan_progress[630] = inventory.get(10501, 0)
+    config = load_task_static_data()
+    changed = False
+    for rows, definitions, values in ((tasks, config["task_list"], progress), (plans, config["list_map"], plan_progress)):
+        for row in rows:
+            task_id = int(row["id"])
+            definition = definitions.get(str(task_id))
+            if definition and task_id in values:
+                target = min(int(definition["count"]), int(values[task_id]))
+                if target > int(row.get("pro", 0)):
+                    row["pro"] = target
+                    changed = True
+    return changed
+
+
 def apply_guide_task_reward(state: dict, task_id: int) -> tuple[bool, str, dict | None]:
+    refresh_guide_task_progress(state)
     _, task_rows, _, _ = get_guide_task_parts(state)
     config = load_task_static_data().get("task_list", {})
     definition = config.get(str(int(task_id))) if isinstance(config, dict) else None
@@ -1475,6 +1587,7 @@ def apply_guide_task_reward(state: dict, task_id: int) -> tuple[bool, str, dict 
 
 
 def apply_guide_task_list_reward(state: dict, reward_id: int) -> tuple[bool, str, dict | None]:
+    refresh_guide_task_progress(state)
     task_type, reward_index = divmod(int(reward_id), 100)
     if task_type <= 0 or reward_index <= 0:
         return False, "bad_reward_id", None
@@ -10072,6 +10185,7 @@ def apply_visit_open(state: dict, policy: dict | None = None, now: int | None = 
                 set_house_count(house, iid, new)
                 result["item"] = [iid, new]
     visit.pop("visitor", None)
+    state.setdefault("offline_meta", {}).setdefault("guide_task", {})["received_friend_gift"] = True
     meta = state.setdefault("offline_meta", {}).setdefault("giftbox_friend", {})
     meta.pop("active_offer", None)
     schedule_courtyard_traveler(state, now, policy)
@@ -10402,6 +10516,8 @@ def apply_calendar_st_reward(state: dict, now: int | None = None, reward_day: in
     t1 = next((r for r in tasks if int(r.get("id", -1)) == 1), None)
     if t1 is not None:
         t1["complete"] = bool(auto_share)
+    guide = state.setdefault("offline_meta", {}).setdefault("guide_task", {})
+    guide["season_rewards"] = int(guide.get("season_rewards", 0)) + 1
     save_state(state, f"calendar.get_st_reward:{reward_day}:{item_id}")
     return True, {"code": 0, "day": reward_day, "item_id": item_id, "item_count": count, "task": t1}
 
@@ -10954,6 +11070,8 @@ async def serve_client(ws, state: dict) -> None:
                     )
                     if refresh_plant_encyclopedia(state) or travel_ency_changed:
                         save_state(state, "encyclopedia.sync")
+                    if refresh_guide_task_progress(state):
+                        save_state(state, "task.sync_gameplay")
                     children_day_claimed = claim_children_day_login_reward(state)
                     refresh_achievements(state)
                     advance_weekend_lottery(state, int(time.time()), policy)
@@ -11410,6 +11528,8 @@ async def serve_client(ws, state: dict) -> None:
                     logging.exception("处理 guest.finish 时出错")
 
             elif cmd in {"task.load", "task.load_list"}:
+                if refresh_guide_task_progress(state):
+                    save_state(state, "task.refresh")
                 push = find_push(state, cmd)
                 await send_response(ws, session, copy.deepcopy(push.get("data", {})) if push else {})
 
@@ -12958,7 +13078,8 @@ async def serve_client(ws, state: dict) -> None:
             elif cmd == "task.client_pro":
                 try:
                     value = data.get("param") if isinstance(data, dict) else data
-                    record_guide_task_client_progress(state, value)
+                    if record_guide_task_client_progress(state, value):
+                        await send_json(ws, copy.deepcopy(find_push(state, "task.load")))
                 except Exception:
                     logging.exception("处理 task.client_pro 时出错")
 
@@ -12999,6 +13120,10 @@ async def serve_client(ws, state: dict) -> None:
                     )
                 else:
                     logging.warning("记录但忽略未实现无响应命令: %s", cmd)
+
+            if refresh_guide_task_progress(state):
+                save_state(state, "task.gameplay_progress")
+                await send_json(ws, copy.deepcopy(find_push(state, "task.load")))
 
     except websockets.ConnectionClosed:
         logging.info("客户端断开: %s", peer)

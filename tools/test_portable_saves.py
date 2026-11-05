@@ -178,6 +178,46 @@ class PortableSaveTests(unittest.TestCase):
             self.assertIsNone(game.maybe_generate_story_social(state, "complete", policy))
             roll.assert_not_called()
 
+    def test_returned_trip_backfills_guide_progress_and_reward_is_once(self):
+        state = copy.deepcopy(self.seed)
+        state["offline_meta"]["travel_history"] = [
+            {"started_at": 100, "returned_at": 200, "place": 1, "food_id": 0,
+             "amulet_id": -1, "bag_snapshot": [0, -1, -1, -1], "picture_ids": [100]}
+        ]
+        self.assertTrue(game.refresh_guide_task_progress(state))
+        tasks = {row["id"]: row for row in game.get_guide_task_parts(state)[1]}
+        self.assertEqual(tasks[1]["pro"], 1)
+        self.assertEqual(tasks[2]["pro"], 1)
+        self.assertEqual(tasks[7]["pro"], 1)
+        self.assertFalse(tasks[1]["is_reward"])
+        before = game.get_role_parts(state)[2]["clover_point"]
+        with patch.object(game, "save_state"):
+            ok, reason, reward = game.apply_guide_task_reward(state, 1)
+            self.assertTrue(ok, reason)
+            self.assertEqual(reward["total"], before + 10)
+            self.assertFalse(game.apply_guide_task_reward(state, 1)[0])
+        self.assertFalse(game.refresh_guide_task_progress(state))
+        state = json.loads(json.dumps(state))
+        self.assertTrue(next(row for row in game.get_guide_task_parts(state)[1] if row["id"] == 1)["is_reward"])
+
+    def test_guide_social_plan_and_offline_gift_reward(self):
+        state = copy.deepcopy(self.seed)
+        with patch.object(game, "save_state"):
+            game.refresh_guide_task_progress(state)
+            _, tasks, plans, _ = game.get_guide_task_parts(state)
+            story_heart = next(row for row in plans if row["id"] == 401)
+            gift_task = next(row for row in tasks if row["id"] == 9)
+            self.assertEqual(story_heart["pro"], 1)
+            self.assertEqual(gift_task["pro"], 0)
+            self.assertEqual(game.apply_guide_task_reward(state, 9)[1], "not_complete")
+            game.get_event_list(state).append({"id": 42, "evt_type": 16})
+            self.assertTrue(game.apply_confirm_event(state, 42))
+            self.assertTrue(game.refresh_guide_task_progress(state))
+            self.assertEqual(gift_task["pro"], 1)
+            self.assertTrue(game.apply_guide_task_reward(state, 9)[0])
+            self.assertEqual(game.apply_guide_task_reward(state, 9)[1], "already_claimed")
+            self.assertEqual(game.get_house_count(game.get_item_parts(state)[1], 1012), 1)
+
     def test_observations_share_one_drop_path_from_empty_save(self):
         state = copy.deepcopy(self.seed)
         notes = game.get_travel_note_state(state)["note_list"]

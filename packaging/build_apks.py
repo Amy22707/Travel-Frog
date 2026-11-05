@@ -66,7 +66,16 @@ def write_bootstrap(game, desktop=False):
     shop = shop.replace('t.height = 582;\n\t\tt.left = 0;\n\t\tt.name = "shopScroller";', 't.height = 592;\n\t\tt.left = 0;\n\t\tt.name = "shopScroller";')
     if '[-82,"hostComponent.safe_top"],[1],this.shopScroller' not in shop or "t.height = 592;" not in shop:
         raise ValueError("Unexpected shop layout in default.thm.js")
-    theme.write_text(skins[:start] + shop + skins[end:], encoding="utf-8")
+    skins = skins[:start] + shop + skins[end:]
+    start = skins.index("['resource/China/skins/Furniture/FurnitureShopSkin.exml']")
+    end = skins.index("generateEUI.paths[", start + 5)
+    stall = skins[start:end]
+    stall = stall.replace('["hostComponent.safe_top"],[0],this.shopScroller,"verticalCenter"',
+                          '[-64,"hostComponent.safe_top"],[1],this.shopScroller,"verticalCenter"')
+    stall = stall.replace('t.height = 842;', 't.height = 640;')
+    if '[-64,"hostComponent.safe_top"],[1],this.shopScroller' not in stall or "t.height = 640;" not in stall:
+        raise ValueError("Unexpected furniture shop layout in default.thm.js")
+    theme.write_text(skins[:start] + stall + skins[end:], encoding="utf-8")
     manifest = json.loads((game / "manifest.json").read_text(encoding="utf-8"))
     scripts = manifest["initial"] + ["js/default.thm.js"]
     if not desktop:

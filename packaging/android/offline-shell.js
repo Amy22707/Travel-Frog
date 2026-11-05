@@ -207,6 +207,89 @@
         console.error("OFFLINE_PROMISE " + event.reason);
     });
     var wheelAnimations = new WeakMap();
+    function cancelWheel(view) {
+        var pending = wheelAnimations.get(view);
+        if (!pending) return;
+        cancelAnimationFrame(pending.id);
+        wheelAnimations.delete(view);
+        Utils.FpsManager.instance().resume();
+    }
+    function dragScrollThumb(event) {
+        var bar = this, view = bar.viewport, stage = bar.stage;
+        if (!view || !bar.thumb || !stage) return;
+        event.stopPropagation();
+        event.preventDefault();
+        var horizontal = bar instanceof eui.HScrollBar;
+        var axis = horizontal ? "x" : "y";
+        var dimension = horizontal ? "width" : "height";
+        var contentDimension = horizontal ? "contentWidth" : "contentHeight";
+        var scroll = horizontal ? "scrollH" : "scrollV";
+        var origin = bar.globalToLocal(event.stageX, event.stageY)[axis];
+        var initial = view[scroll];
+        var travel = bar[dimension] - bar.thumb[dimension];
+        if (travel <= 0) return;
+        cancelWheel(view);
+        if (bar.parent instanceof eui.Scroller) bar.parent.stopAnimation();
+        Utils.FpsManager.instance().boost();
+        function move(next) {
+            next.stopPropagation();
+            var delta = bar.globalToLocal(next.stageX, next.stageY)[axis] - origin;
+            var limit = Math.max(0, view[contentDimension] - view[dimension]);
+            view[scroll] = Math.max(0, Math.min(limit, Math.round(initial + delta * limit / travel)));
+        }
+        function end() {
+            stage.removeEventListener(egret.TouchEvent.TOUCH_MOVE, move, bar);
+            stage.removeEventListener(egret.TouchEvent.TOUCH_END, end, bar);
+            bar.removeEventListener(egret.Event.REMOVED_FROM_STAGE, end, bar);
+            Utils.FpsManager.instance().resume();
+        }
+        stage.addEventListener(egret.TouchEvent.TOUCH_MOVE, move, bar);
+        stage.addEventListener(egret.TouchEvent.TOUCH_END, end, bar);
+        bar.addEventListener(egret.Event.REMOVED_FROM_STAGE, end, bar);
+    }
+    var addScrollerPart = eui.Scroller.prototype.partAdded;
+    eui.Scroller.prototype.partAdded = function (name, part) {
+        addScrollerPart.call(this, name, part);
+        if (part === this.verticalScrollBar || part === this.horizontalScrollBar) {
+            part.touchEnabled = part.touchChildren = true;
+            part.addEventListener(egret.TouchEvent.TOUCH_BEGIN, dragScrollThumb, part);
+        }
+    };
+    document.addEventListener("mousedown", function (event) {
+        if (event.button !== 1 || event.target.tagName !== "CANVAS") return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        var stage = egret.MainContext.instance.stage, bounds = event.target.getBoundingClientRect();
+        var target = stage.$hitTest((event.clientX - bounds.left) * stage.stageWidth / bounds.width,
+                                   (event.clientY - bounds.top) * stage.stageHeight / bounds.height);
+        while (target && !(target instanceof eui.Scroller)) target = target.parent;
+        if (!target || !target.viewport) return;
+        var view = target.viewport;
+        var vertical = view.contentHeight > view.height;
+        var scroll = vertical ? "scrollV" : "scrollH";
+        var initial = view[scroll], origin = vertical ? event.clientY : event.clientX;
+        var scale = vertical ? stage.stageHeight / bounds.height : stage.stageWidth / bounds.width;
+        cancelWheel(view);
+        target.stopAnimation();
+        Utils.FpsManager.instance().boost();
+        function move(next) {
+            var limit = Math.max(0, vertical ? view.contentHeight - view.height : view.contentWidth - view.width);
+            var delta = (vertical ? next.clientY : next.clientX) - origin;
+            view[scroll] = Math.max(0, Math.min(limit, Math.round(initial + delta * scale)));
+        }
+        function end() {
+            window.removeEventListener("mousemove", move);
+            window.removeEventListener("mouseup", end);
+            window.removeEventListener("blur", end);
+            Utils.FpsManager.instance().resume();
+        }
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", end);
+        window.addEventListener("blur", end);
+    }, true);
+    document.addEventListener("auxclick", function (event) {
+        if (event.button === 1 && event.target.tagName === "CANVAS") event.preventDefault();
+    });
     document.addEventListener("wheel", function (event) {
         if (event.ctrlKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
         var stage = egret.MainContext.instance.stage;
