@@ -28,6 +28,13 @@
 /desktop/*
 !/desktop/*.py
 !/desktop/FrogWindow.cs
+!/desktop/MacApp.swift
+!/desktop/mac-scroll.js
+!/.github/
+/.github/*
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/macos.yml
 !/mobile/
 /mobile/*
 !/mobile/*.py
