@@ -8,6 +8,10 @@ Windows 普通版使用 `TravelFrogNormal-Setup.exe`，图鉴版使用 `TravelFr
 
 ## 开始游戏
 
+macOS 13 或更新版本可安装 DMG。到「 → 关于本机」查看芯片，Apple 芯片下载 `arm64`，Intel 芯片下载 `x86_64`。选择普通版或图鉴版的 DMG，将应用拖到「应用程序」，再从那里打开。应用包含本地服务和资源，安装后可断网游玩。若首次被系统拦截，可在「系统设置 → 隐私与安全性」为该应用选择「仍要打开」。[Apple 安装说明](https://support.apple.com/zh-cn/102445)
+
+Mac 版首次启动可导入同版本存档或开始新旅程。游戏里的「存档」和应用菜单可以打开存档管理。要导入另一份进度，先从存档管理返回起始页。
+
 安卓：安装对应 APK，打开后导入 `.frogsave` 或 JSON 存档，也可以创建初始进度，然后点击“继续旅程”。运行环境、游戏资源和存档都在手机本地，不需要连接电脑、ADB 或 root。
 
 iPhone / iPad：用 Safari 打开网页版本，从分享菜单选择“添加到主屏幕”。从新图标打开后导入存档，点击“下载离线资源”，等待完成后即可断网游玩。Safari 页面与主屏幕应用可能使用不同存储，建议在主屏幕应用内导入。首次下载约 320 MB，建议使用 Wi-Fi。
@@ -20,7 +24,7 @@ iPhone / iPad：用 Safari 打开网页版本，从分享菜单选择“添加�
 
 ## 存档
 
-- Windows 数据保存在程序旁的 `user-data/normal/` 或 `user-data/gallery/`；安卓数据在应用私有目录；网页数据在当前设备的网站存储中。
+- Windows 数据保存在程序旁的 `user-data/normal/` 或 `user-data/gallery/`。Mac 数据在 `~/Library/Application Support/TravelFrog/normal/` 或 `gallery/`。安卓数据在应用私有目录，网页数据在当前设备的网站存储中。
 - “导出存档”生成 `.frogsave` 文件，包含当前版本的完整离线状态，包括日记和已经保存的照片图层。
 - 导入支持 `.frogsave`、兼容的 `state.json` 以及完整初始化协议 `.jsonl`。导入前退出当前游戏画面。
 - 导入覆盖前自动备份到该版本的 `import-backups/`；普通版和图鉴版存档不会混用。
@@ -54,6 +58,8 @@ python packaging\build_phone_apks.py
 旧的 `build_apks.py` 用于准备原游戏资源和电脑连接型 APK。独立手机版由 `build_phone_apks.py` 构建。需要本机 Java、Apktool 与签名工具；安卓编译依赖和 Pyodide 下载到 `.build/`。
 
 新构建产物位于 `release/TravelFrogNormal/`、`release/TravelFrogGallery/`、`release/Android/` 和 `release/TravelFrogMobile/`。手机网页目录可以部署到 HTTPS 静态站点的子目录，不需要网站服务端运行 Python。
+
+Mac 安装包在 macOS 上构建，依赖 Xcode 命令行工具和 `requirements-build.txt`。将两版 Windows 发布 ZIP 放到 `archives` 目录后，执行 `python3 packaging/build_macos.py --archives archives --output release/macos`。命令为当前芯片架构生成两个 DMG。测试命令为 `python3 packaging/test_macos.py release/macos`。
 
 安卓发布包使用独立应用标识，可以与先前的测试包并存。进度通过同版本的 `.frogsave` 迁移。构建时指定长期保存的签名密钥库和别名，通过环境变量 `FROG_ANDROID_KEYSTORE_PASSWORD` 提供密码。APK 输出到 `release/AndroidRelease/`，后续覆盖升级继续使用同一密钥库。
 
