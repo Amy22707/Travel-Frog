@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 from tempfile import TemporaryDirectory
 import threading
@@ -17,6 +18,22 @@ EDITIONS = {
     "普通版": ("TravelFrogNormal", "FrogNormal.exe"),
     "图鉴版": ("TravelFrogGallery", "FrogGallery.exe"),
 }
+
+
+def create_desktop_shortcut(launcher, edition):
+    script = r"""
+$ErrorActionPreference = 'Stop'
+$shell = New-Object -ComObject WScript.Shell
+$desktop = $shell.SpecialFolders.Item('Desktop')
+$link = $shell.CreateShortcut((Join-Path $desktop ($env:FROG_SHORTCUT_TITLE + '.lnk')))
+$link.TargetPath = $env:FROG_SHORTCUT_TARGET
+$link.WorkingDirectory = Split-Path -Parent $env:FROG_SHORTCUT_TARGET
+$link.Save()
+"""
+    env = dict(os.environ, FROG_SHORTCUT_TARGET=str(launcher),
+               FROG_SHORTCUT_TITLE=f"旅行青蛙·中国之旅（{edition}）")
+    subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                   env=env, creationflags=subprocess.CREATE_NO_WINDOW, check=True)
 
 
 def install(edition, destination, download_dir):
@@ -91,6 +108,7 @@ def main():
         def run():
             try:
                 launcher = install(selected, destination, source)
+                create_desktop_shortcut(launcher, selected)
             except Exception as error:
                 root.after(0, finish, None, error)
             else:

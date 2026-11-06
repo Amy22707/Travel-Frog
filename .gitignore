@@ -27,6 +27,7 @@
 !/desktop/
 /desktop/*
 !/desktop/*.py
+!/desktop/FrogWindow.cs
 !/mobile/
 /mobile/*
 !/mobile/*.py

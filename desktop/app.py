@@ -15,7 +15,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from desktop.launcher import CREATE_NO_WINDOW, ROOT, FROZEN, find_browser
+from desktop.launcher import CREATE_NO_WINDOW, ROOT, FROZEN
 from desktop.saves import create_save, export_save, import_save, save_path
 
 CREAM = "#ffffff"
@@ -31,10 +31,8 @@ class DesktopGame:
         self.path = save_path(self.data_root, edition)
         self.title = "旅行青蛙·中国之旅" + ("图鉴版" if edition == "gallery" else "")
         self.service = self.http = self.logfile = None
+        self.game_window = None
         self.game_open = self.busy = False
-        self.last_ping = 0
-        self.last_watch = time.monotonic()
-        self.closed_at = 0
         self.status = tk.StringVar()
         root.title(self.title)
         root.configure(bg=CREAM)
@@ -129,18 +127,15 @@ class DesktopGame:
         if not ready:
             self.stop_service()
             raise RuntimeError(f"游戏未能启动。请查看 {self.path.parent / 'desktop.log'}")
-        directory = ROOT / "web/game" if FROZEN else ROOT / "release/TravelFrog/web/game"
+        folder = "TravelFrogGallery" if self.edition == "gallery" else "TravelFrogNormal"
+        directory = ROOT / "web/game" if FROZEN else ROOT / "release" / folder / "web/game"
         app = self
         class Files(SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, directory=str(directory), **kwargs)
 
             def do_POST(self):
-                if self.path == "/__desktop/ping":
-                    app.last_ping, app.closed_at = time.monotonic(), 0
-                elif self.path == "/__desktop/closed":
-                    app.closed_at = time.monotonic()
-                elif self.path == "/__desktop/saves":
+                if self.path == "/__desktop/saves":
                     app.root.after(0, app.root.deiconify)
                 else:
                     self.send_error(404)
@@ -152,20 +147,26 @@ class DesktopGame:
                 pass
         self.http = ThreadingHTTPServer(("127.0.0.1", 0), Files)
         threading.Thread(target=self.http.serve_forever, daemon=True).start()
-        profile = self.path.parent / "desktop-browser"
+        profile = self.path.parent / "desktop-webview"
         url = f"http://127.0.0.1:{self.http.server_port}/index.html?edition={self.edition}&serverPort={self.port}&desktopApp=1"
-        subprocess.Popen([str(find_browser()), f"--app={url}", f"--user-data-dir={profile}", "--no-first-run",
-                          "--window-size=520,850"], creationflags=CREATE_NO_WINDOW)
-        self.last_ping = time.monotonic()
+        window_dir = ROOT / "_internal/FrogWindow" if FROZEN else ROOT / ".build/windows-webview"
+        try:
+            self.game_window = subprocess.Popen(
+                [str(window_dir / "FrogWindow.exe"), url, str(profile), self.edition],
+                stdout=self.logfile, stderr=self.logfile,
+                creationflags=CREATE_NO_WINDOW,
+            )
+        except OSError:
+            self.stop_service()
+            self.http.shutdown()
+            self.http.server_close()
+            self.http = None
+            raise
         self.game_open = True
         self.root.after(0, self.root.withdraw)
 
     def watch(self):
-        now = time.monotonic()
-        if now - self.last_watch > 120:
-            self.last_ping = now
-        self.last_watch = now
-        if self.game_open and not self.busy and ((self.closed_at and now - self.closed_at > 3) or now - self.last_ping > 120):
+        if self.game_open and not self.busy and self.game_window.poll() is not None:
             self.close(force=True)
             return
         self.root.after(1500, self.watch)

@@ -378,10 +378,6 @@
     }, {passive: false});
     var query = new URLSearchParams(location.search);
     if (query.get("desktopApp") === "1") {
-        var ping = function () { fetch("/__desktop/ping", {method: "POST"}).catch(function () {}); };
-        ping();
-        setInterval(ping, 10000);
-        window.addEventListener("pagehide", function () { navigator.sendBeacon("/__desktop/closed", ""); });
         var manage = document.createElement("button");
         manage.textContent = "存档";
         manage.title = "导出存档与存档管理";
