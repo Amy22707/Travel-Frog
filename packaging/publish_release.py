@@ -31,7 +31,7 @@ def main():
             if response.status==204:return None
             return json.load(response)
     android = ROOT / "release" / ("AndroidRelease" if args.signed_android else "Android")
-    files=[ROOT/"release/TravelFrogSetup.exe",
+    files=[ROOT/"release/TravelFrogNormal-Setup.exe",ROOT/"release/TravelFrogGallery-Setup.exe",
            ROOT/"release/TravelFrogNormal-Windows.zip",ROOT/"release/TravelFrogGallery-Windows.zip",
            android/"FrogNormal.apk",android/"FrogGallery.apk",
            ROOT/"release/TravelFrogWeb.zip", ROOT/"release/FrogStudioEntry.zip"]

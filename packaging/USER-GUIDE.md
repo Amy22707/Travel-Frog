@@ -1,8 +1,8 @@
 # 旅行青蛙离线版
 
-Windows 双击 `TravelFrogSetup.exe`，选择普通版或图鉴版。安装器会下载对应的压缩包，也可从安装器所在文件夹读取已经下载的版本。安装目录是 `%LOCALAPPDATA%\TravelFrog`，其中普通版打开 `FrogNormal.exe`，图鉴版打开 `FrogGallery.exe`。下载压缩包后也可以手动解压整个文件夹再启动。
+Windows 普通版使用 `TravelFrogNormal-Setup.exe`，图鉴版使用 `TravelFrogGallery-Setup.exe`。双击安装包后可以修改目录，也可以勾选桌面快捷方式。两版默认分别安装到 `%LOCALAPPDATA%\TravelFrog\TravelFrogNormal` 和 `%LOCALAPPDATA%\TravelFrog\TravelFrogGallery`。安装包下载完成后可离线安装，向导会显示解包进度，安装过程中可以取消。也可以手动解压对应 ZIP 后启动。
 
-独立窗口版安装时会创建对应版本的桌面快捷方式。已有进度时，双击快捷方式或 EXE 会直接打开游戏。窗口使用 Windows 内嵌的 WebView2 运行游戏，程序与资源均在本机。首次使用可以创建初始进度或导入存档。窗口左下角的「存档」按钮可打开存档管理并导出进度。关闭游戏窗口后，本地服务自动退出。 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download-section)
+安装后可以从开始菜单或安装目录打开游戏，普通版启动文件是 `FrogNormal.exe`，图鉴版是 `FrogGallery.exe`。已有进度时，启动程序会直接打开游戏。窗口使用 Windows 内嵌的 WebView2 运行游戏，程序与资源均在本机。首次使用可以创建初始进度或导入存档。窗口左下角的「存档」按钮可打开存档管理并导出进度。关闭游戏窗口后，本地服务自动退出。 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download-section)
 
 已有进度但需要导入另一份备份时，先关闭游戏，然后双击 `存档管理.cmd` 打开管理界面，再选择“导入存档”。
 
@@ -30,7 +30,7 @@ iPhone / iPad：用 Safari 打开网页版本，从分享菜单选择“添加�
 
 周末的小插曲按北京时间周六、周日开放。提交五个选项后，下个周末可领取答谢；错过周末不会丢掉已提交的答谢。离线版不提供玩家排行榜，漂流瓶入口改为本地旅行日记，不与其他玩家交换内容。
 
-Windows 升级时保留 `user-data/`，更新程序和资源文件。安卓升级请覆盖安装；卸载应用会删除本地进度。清理浏览器网站数据也会删除网页存档，请先导出备份。
+Windows 升级时先关闭游戏，然后选原来的安装目录，安装器会保留 `user-data/`。如果改装到其他目录，请先导出 `.frogsave`，然后在新目录的同一版本中导入。安卓升级请覆盖安装；卸载应用会删除本地进度。清理浏览器网站数据也会删除网页存档，请先导出备份。
 
 网页和 Windows 版保存照片时会下载 PNG 文件，可在浏览器或游戏窗口的下载提示中查看保存位置。明信片分享页也可以单独保存带信封的图片。安卓版会打开系统的文件保存界面，允许自行选择位置。
 
@@ -38,7 +38,7 @@ Windows 升级时保留 `user-data/`，更新程序和资源文件。安卓升�
 
 ## 本机构建
 
-源码仓库不包含原游戏资源。自行准备原客户端、配置与本机资源镜像后，在 Windows CMD 中执行：
+源码仓库不包含原游戏资源。自行准备原客户端、配置与本机资源镜像后，在 Windows CMD 中执行以下命令。生成离线 Windows 安装包需要 [Inno Setup 6.7 或更新版](https://jrsoftware.org/isdl.php)。如果编译器没有随附 [简体中文语言文件](https://jrsoftware.org/files/istrans/)，请将 `ChineseSimplified.isl` 放到编译器的 `Languages` 目录中。
 
 ```bat
 python -m pip install --target .build-deps -r requirements-build.txt

@@ -41,6 +41,7 @@
 /packaging/*
 !/packaging/*.py
 !/packaging/*.spec
+!/packaging/*.iss
 !/packaging/*.md
 !/packaging/android/
 /packaging/android/*
