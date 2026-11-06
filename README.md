@@ -18,7 +18,7 @@
 - **安卓**：安装普通版 `FrogNormal.apk` 或图鉴版 `FrogGallery.apk`。打开后创建或导入存档即可游玩，两版可以同时安装。
 - **网页与 iPhone / iPad**：用浏览器打开网页入口，选择版本，然后创建或导入存档。iPhone 和 iPad 可以在 Safari 通过“分享 → 添加到主屏幕”安装网页应用。需要断网游玩时，在网页起始页下载离线资源。
 
-Windows 使用内嵌 Microsoft WebView2 Runtime 的独立游戏窗口。 [各平台下载](https://github.com/Amy22707/Travel-Frog/releases/tag/v0.2.4) · [网页游玩与安装教程](https://amy22707.github.io/studio/travel-frog/) · [存档使用说明](packaging/USER-GUIDE.md)
+当前发布版本为 v0.2.4，Windows、macOS、安卓与网页资源包集中在同一下载页。Windows 使用内嵌 Microsoft WebView2 Runtime 的独立游戏窗口。 [各平台下载](https://github.com/Amy22707/Travel-Frog/releases/tag/v0.2.4) · [网页游玩与安装教程](https://amy22707.github.io/studio/travel-frog/) · [存档使用说明](packaging/USER-GUIDE.md)
 
 日历按实际节气日期安排料理，每月额外随机生成两到三份幸运日礼物。当月错过的奖励可以补领，庭院在有奖励可领时显示日历入口。伴蛙前行可从已有返程和收集记录补进度，首次离线回礼会送来旅友的初识笔记。
 

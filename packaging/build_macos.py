@@ -113,7 +113,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archives", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--version", default="0.2.4")
+    parser.add_argument("--version", default=(ROOT / "VERSION").read_text(encoding="utf-8").strip())
     args = parser.parse_args()
     if sys.platform != "darwin":
         parser.error("Build these disk images on macOS")

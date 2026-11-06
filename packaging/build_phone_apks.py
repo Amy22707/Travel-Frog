@@ -63,7 +63,8 @@ def main():
     shutil.copytree(ROOT/"release/TravelFrogMobile",project/"assets/mobile",dirs_exist_ok=True)
     (project/"res/drawable").mkdir(parents=True,exist_ok=True)
     shutil.copyfile(ROOT/".build/android/res/drawable/icon.png",project/"res/drawable/icon.png")
-    (project/"apktool.yml").write_text('''version: 2.12.1
+    release_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    (project/"apktool.yml").write_text(f'''version: 2.12.1
 apkFileName: FrogPhone.apk
 usesFramework:
   ids:
@@ -74,8 +75,8 @@ sdkInfo:
 packageInfo:
   forcedPackageId: 127
 versionInfo:
-  versionCode: 4
-  versionName: 2.0.2
+  versionCode: 5
+  versionName: {release_version}
 doNotCompress:
 - arsc
 - png
