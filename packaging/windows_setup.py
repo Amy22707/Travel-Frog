@@ -44,7 +44,12 @@ def install(edition, destination, download_dir):
     with TemporaryDirectory(dir=destination) as work:
         work = Path(work)
         archive = download_dir / filename
-        if not archive.is_file():
+        native_host = f"{folder}/_internal/FrogWindow/FrogWindow.exe"
+        local_is_current = False
+        if archive.is_file():
+            with zipfile.ZipFile(archive) as package:
+                local_is_current = native_host in package.namelist()
+        if not local_is_current:
             archive = work / filename
             urlretrieve(f"{RELEASE}/{filename}", archive)
         with zipfile.ZipFile(archive) as package:
@@ -55,7 +60,8 @@ def install(edition, destination, download_dir):
                 if (len(parts) < 2 or parts[0] != folder or parts[1] not in allowed
                         or ".." in parts):
                     raise ValueError(f"安装包文件路径无效：{member}")
-            if f"{folder}/{launcher}" not in members or f"{folder}/FrogServer.exe" not in members:
+            if (f"{folder}/{launcher}" not in members or f"{folder}/FrogServer.exe" not in members
+                    or native_host not in members):
                 raise ValueError("安装包不完整。")
             package.extractall(work)
         if target.exists():
